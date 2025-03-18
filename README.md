@@ -1,7 +1,8 @@
 # webhookllm
 Git Webhook API integration with LLM
 
-![image](https://github.com/user-attachments/assets/984d6181-ab33-4276-b414-82928e76262e)
+![image](https://github.com/user-attachments/assets/ecb6f5fa-8089-474e-abc8-1d56109f4abf)
+
 
 Use webhook.site to test https://webhook.site/
 
