@@ -1,0 +1,28 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "GitLabWebhook", "GitLabWebhook\GitLabWebhook.csproj", "{37A2A4C7-4DE5-4F32-BF1C-617F5A038C7B}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "GitLabWebhook.Tests", "GitLabWebhook.Tests\GitLabWebhook.Tests.csproj", "{7EE719C0-B502-4EA5-9C57-CCD8C5CAA23B}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{37A2A4C7-4DE5-4F32-BF1C-617F5A038C7B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{37A2A4C7-4DE5-4F32-BF1C-617F5A038C7B}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{37A2A4C7-4DE5-4F32-BF1C-617F5A038C7B}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{37A2A4C7-4DE5-4F32-BF1C-617F5A038C7B}.Release|Any CPU.Build.0 = Release|Any CPU
+		{7EE719C0-B502-4EA5-9C57-CCD8C5CAA23B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{7EE719C0-B502-4EA5-9C57-CCD8C5CAA23B}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{7EE719C0-B502-4EA5-9C57-CCD8C5CAA23B}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{7EE719C0-B502-4EA5-9C57-CCD8C5CAA23B}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+EndGlobal
