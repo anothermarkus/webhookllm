@@ -5,9 +5,13 @@ using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Configuration;
 using Newtonsoft.Json.Linq;
+using CodeReviewServices;
 
 namespace GitLabWebhook.Controllers
 {
+
+    
+    
     public class GitLabWebhookResponse
     {
         public string Status { get; set; }
@@ -20,12 +24,17 @@ namespace GitLabWebhook.Controllers
     {
         private readonly IConfiguration _configuration;
         private readonly HttpClient _httpClient;
+        private readonly OpenAIService _openAiService; 
+        private readonly GitLabService _gitLabService;
+
 
         // Inject IConfiguration to access the app settings and initialize the HttpClient
         public GitLabWebhookController(IConfiguration configuration)
         {
             _configuration = configuration;
             _httpClient = new HttpClient(); // Create a single instance of HttpClient
+            _openAiService = new OpenAIService();
+            _gitLabService = new GitLabService();
         }
 
         // POST api/gitlabwebhook
