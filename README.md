@@ -11,6 +11,9 @@ Replace config.json with actual data and run
 
 off the branch openAIcallsWIP .. running the webservice the root will communciate with OpenAI to get a code review comment
 
+
+![image](https://github.com/user-attachments/assets/c926a45a-be43-4bb6-b0d4-5e355539d28f)
+
 Documents to reference for this project
     // Review API Patterns https://github.com/openai/openai-dotnet/tree/OpenAI_2.1.0
     // Documentation https://platform.openai.com/docs/api-reference/introduction
