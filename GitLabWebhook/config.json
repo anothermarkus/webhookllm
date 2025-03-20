@@ -1,6 +1,5 @@
 {
     "GitLab": {
-        "ApiBaseUrl": "https://gitlab.xyz.com/api/v4/projects",
-        "PrivateToken": "XYZ"
+        "ApiBaseUrl": "https://gitlab.dell.com/api/v4/projects"
     }
 }

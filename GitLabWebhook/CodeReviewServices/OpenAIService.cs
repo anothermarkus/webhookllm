@@ -1,76 +1,69 @@
+using System.ClientModel;
+using Models;
+using OpenAI;
 using OpenAI.Chat;
-using OpenAI.Embeddings;
-using OpenAI.Models;
 
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
-
-namespace CodeReviewServices{
-
+namespace CodeReviewServices
+{
+    // TODO: Review API Patterns https://github.com/openai/openai-dotnet/tree/OpenAI_2.1.0
+    // Documentation https://platform.openai.com/docs/api-reference/introduction
+    // Cookbook code quality https://cookbook.openai.com/examples/third_party/code_quality_and_security_scan_with_github_actions
 
     public class OpenAIService
     {
-        private readonly string _apiKey;
-        private readonly string _openAiBaseUrl;  // Custom Base URL
+        private string _apiKey;
+        private string _openAiBaseUrl; // Custom Base URL
+        private readonly ChatClient _chatClient;
 
         public OpenAIService()
         {
-            _apiKey = "TODO";  // TODO fetch from ENV
-            _openAiBaseUrl = "TODO"; // Use default URL or custom URL
-        }
+            _apiKey = Environment.GetEnvironmentVariable("OPENAPITOKEN");
+            _openAiBaseUrl = "https://genai-api-dev.dell.com/v1/"; //Open API 2.3.0 - Equivalent to GPT-3.5
 
-         // Method to generate embeddings
-        public async Task<ReadOnlyMemory<float>> GetEmbedding(string text)
-        {
-            // Initialize EmbeddingClient with model name and API key
-            EmbeddingClient embeddingClient = new EmbeddingClient("text-embedding-ada-002", _apiKey);
-
-            // Generate embedding for the input text
-            OpenAIEmbedding embedding = embeddingClient.GenerateEmbedding(text);
-
-            // Convert embedding to a readable format
-            ReadOnlyMemory<float> vector = embedding.ToFloats();
-
-            return vector;
-        }
-
-        // Method to generate a completion (text suggestion)
-        public async Task<string> GetCompletion(string prompt)
-        {
-            // Initialize ChatClient with the model name and API key
-            var chatClient = new ChatClient("gpt-4", _apiKey);
-
-            // Create a message list for the chat model
-            var messages = new List<ChatMessage>
+            var apiKeyCredential = new ApiKeyCredential(_apiKey);
+            var options = new OpenAIClientOptions
             {
-                new UserChatMessage(prompt)
+                Endpoint = new Uri(_openAiBaseUrl), // Specify the hostname here
+            };
+            _chatClient = new ChatClient("codellama-13b-instruct", apiKeyCredential, options);
+        }
+
+        public async Task<FileDiff> PopulateSuggestion(FileDiff fileDiff)
+        {
+            var reviewCriteria = new List<string>
+            {
+                "Check for unused variables",
+                "Ensure all functions have docstrings",
+                "Check for code duplication",
+                "Ensure error handling is implemented",
             };
 
-            // Request completion from the chat model
-            ChatCompletion completion = chatClient.CompleteChat(messages);
+            var result = await ReviewCodeAsync(fileDiff.Diff, reviewCriteria);
 
-            // Return the first completion result
-            return completion.Content[0].Text;
+            if (result != null)
+            {
+                fileDiff.HasSuggestion = true;
+                fileDiff.LLMComment = result;
+                // TODO parse result as JSON and fetch line number from it
+            }
+
+            return fileDiff;
         }
 
-        public string GetReviewGuideline()
+        public async Task<string> ReviewCodeAsync(string codeDocument, List<string> reviewCriteria)
         {
-            return @"You are a senior developer who reviews C# code. Follow these best practices:
-            1. Ensure proper naming conventions are followed.
-            2. Check for code readability and clarity.
-            3. Look for proper exception handling.
-            4. Ensure performance optimization where necessary.
-            5. Verify proper commenting and documentation.
-            6. Ensure adherence to SOLID principles and design patterns.
-            7. Validate unit tests and test coverage.
-            8. Ensure secure coding practices.";
+            var criteriaPrompt = string.Join("\n", reviewCriteria);
+            var prompt =
+                $"Here is the code:\n{codeDocument}\n\nPlease review the code based on the following criteria:\n{criteriaPrompt}\n"
+                + "Provide suggestions and feedback for improvements.";
+
+            var messages = new List<ChatMessage> { new UserChatMessage(prompt) };
+
+            // Request completion from the OpenAI API
+            var result = await _chatClient.CompleteChatAsync(messages);
+
+            // Return the assistant's feedback
+            return result.Value.Content[0].Text;
         }
-
-
-
-
     }
-
 }

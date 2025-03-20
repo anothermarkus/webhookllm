@@ -2,16 +2,15 @@ using System.Collections.Generic;
 using System.Net.Http;
 using System.Text;
 using System.Threading.Tasks;
+using CodeReviewServices;
+using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Configuration;
+using Models;
 using Newtonsoft.Json.Linq;
-using CodeReviewServices;
 
 namespace GitLabWebhook.Controllers
 {
-
-    
-    
     public class GitLabWebhookResponse
     {
         public string Status { get; set; }
@@ -24,9 +23,8 @@ namespace GitLabWebhook.Controllers
     {
         private readonly IConfiguration _configuration;
         private readonly HttpClient _httpClient;
-        private readonly OpenAIService _openAiService; 
+        private readonly OpenAIService _openAiService;
         private readonly GitLabService _gitLabService;
-
 
         // Inject IConfiguration to access the app settings and initialize the HttpClient
         public GitLabWebhookController(IConfiguration configuration)
@@ -34,7 +32,33 @@ namespace GitLabWebhook.Controllers
             _configuration = configuration;
             _httpClient = new HttpClient(); // Create a single instance of HttpClient
             _openAiService = new OpenAIService();
-            _gitLabService = new GitLabService();
+            _gitLabService = new GitLabService(_configuration);
+        }
+
+        [HttpGet]
+        public async Task<IActionResult> Get()
+        {
+            var reviewCriteria = new List<string>
+            {
+                "Check for unused variables",
+                "Ensure all functions have docstrings",
+                "Check for code duplication",
+                "Ensure error handling is implemented",
+            };
+
+            var code =
+                @"// Sample code
+                 function foo() {
+                     let x = 1;
+                     console.log(x);
+                 }";
+
+            var service = new OpenAIService();
+            var feedback = await service.ReviewCodeAsync(code, reviewCriteria);
+
+            Console.WriteLine(feedback);
+
+            return Ok(feedback);
         }
 
         // POST api/gitlabwebhook
@@ -55,7 +79,7 @@ namespace GitLabWebhook.Controllers
             string mrID = mrObject["iid"].ToString(); // Merge Request ID
             string mrUrl = mrObject["url"].ToString(); // MR URL
             string gitLabApiBaseUrl = _configuration["GitLab:ApiBaseUrl"];
-            string gitLabApiToken = _configuration["GitLab:PrivateToken"];
+            string gitLabApiToken = Environment.GetEnvironmentVariable("GITLABTOKEN");
             string targetRepoPath = mrObject["target"]["path_with_namespace"].ToString();
 
             // Call to GetChangedFilesAsyncAndLeaveFeedback
@@ -107,12 +131,12 @@ namespace GitLabWebhook.Controllers
             string baseSha = diffRefs["base_sha"]?.ToString();
             string headSha = diffRefs["head_sha"]?.ToString();
             string startSha = diffRefs["start_sha"]?.ToString();
-
-            // Extract changes array from the response
             var changes = jsonResponse["changes"];
 
             // Iterate through each change in the changes array
             // foreach (var change in changes)
+
+            // TODO: Construction FileDiff object 
 
             var change = changes[0]; // just take first change for now
 
@@ -122,75 +146,37 @@ namespace GitLabWebhook.Controllers
 
             // We will simulate posting feedback for lines 1 and 2. We can extract line numbers from the diff.
             var diffLines = diff.Split('\n');
-            int line1 = 1; // Typically, line 1 in the diff.
+            //int line1 = 1; // Typically, line 1 in the diff.       
+
+           
+
+            var fileDiff = new FileDiff
+            {
+                FileName = fileName,
+                BaseSha = baseSha,
+                HeadSha = headSha,
+                StartSha = startSha,
+                Diff = diff,
+                HasSuggestion = false
+
+            };
+
+            // TODO: Pass object to OpenAIService to recommend changes and to which line
+
+            // if fileDiff.HasSuggestion
 
             // Post the feedback as inline comments to GitLab
-            await PostReviewFeedback(
+            await _gitLabService.PostReviewFeedbackOnSpecificLine(
                 fileName,
                 baseSha,
                 startSha,
                 headSha,
-                line1,
+                0,
                 "Line one looks good",
                 mrID,
                 targetRepoPath,
                 gitLabApiToken
             );
-        }
-
-        private async Task<HttpResponseMessage> PostReviewFeedback(
-            string fileName,
-            string baseSha,
-            string startSha,
-            string headSha,
-            int lineNumber,
-            string comment,
-            string mrID,
-            string targetRepoPath,
-            string gitLabApiToken
-        )
-        {
-            // Construct the URL for posting the inline comment (discussion)
-            string postCommentUrl =
-                $"https://gitlab.dell.com/api/v4/projects/{Uri.EscapeDataString(targetRepoPath)}/merge_requests/{mrID}/discussions";
-
-            // Construct the comment data (inline comment on a specific line)
-            // https://docs.gitlab.com/api/discussions/
-            //
-            var commentData = new
-            {
-                body = comment,
-                position = new
-                {
-                    position_type = "text", // The position type is "text" for line comments
-                    base_sha = baseSha, // The SHA for the base commit
-                    start_sha = startSha, // The SHA for the start commit
-                    head_sha = headSha, // The SHA for the head commit
-                    new_line = lineNumber, // The new line number (after the change). This CANNOT be anything the user has not changed. Use Notes API for general purpose things.
-                    new_path = fileName, // The file path
-                    old_path = fileName, // The old file path (same as new path in this case)
-                },
-            };
-
-            // Convert the data to JSON
-            string jsonCommentData = Newtonsoft.Json.JsonConvert.SerializeObject(commentData);
-
-            // Create the request message
-            HttpRequestMessage requestMessage = new HttpRequestMessage(
-                HttpMethod.Post,
-                postCommentUrl
-            )
-            {
-                Content = new StringContent(jsonCommentData, Encoding.UTF8, "application/json"),
-            };
-
-            // Add the GitLab API token as a header
-            requestMessage.Headers.Add("private-token", gitLabApiToken);
-
-            // Send the request
-            HttpResponseMessage response = await _httpClient.SendAsync(requestMessage);
-
-            return response;
         }
     }
 }
