@@ -9,10 +9,11 @@ Use webhook.site to test https://webhook.site/
 Replace config.json with actual data and run
 "dotnet test" from the main folder will run the communciation with gitlab
 
-off the branch openAIcallsWIP .. running the webservice the root will communciate with OpenAI to get a code review comment
+off the branch openAIcallsWIP .. running the webservice you can provide an MR it will actually give a nice structured repsonse.
+
+![image](https://github.com/user-attachments/assets/5c8e8237-a9e2-40f6-b784-3dfe90b691e3)
 
 
-![image](https://github.com/user-attachments/assets/c926a45a-be43-4bb6-b0d4-5e355539d28f)
 
 Documents to reference for this project
     // Review API Patterns https://github.com/openai/openai-dotnet/tree/OpenAI_2.1.0
