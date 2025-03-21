@@ -22,8 +22,6 @@ Documents to reference for this project
 
 
 TODO
-
-- Clean up OpenAI calls to return structured JSON, including if there was any comment for a particular file and on which line the suggestion starts on
 - Add Embeddings to OpenAI calls which should provide context / code standards
 - Future feature to query JIRA check the target branch of the ticket compare to the branch being committed into
 - Have the standards/criteria be flexible via dynamic configuration based on how the service is managing the MRs
