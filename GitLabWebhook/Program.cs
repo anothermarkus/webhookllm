@@ -6,8 +6,14 @@ using Microsoft.Extensions.Configuration;
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
-// This is where you add services like controllers, databases, etc.
 builder.Services.AddControllers();
+
+// Add Swagger services
+builder.Services.AddSwaggerGen(); // Adds Swagger generator
+
+// Load the configuration from appsettings.json
+builder.Configuration.SetBasePath(Directory.GetCurrentDirectory())
+    .AddJsonFile("config.json", optional: false, reloadOnChange: true);
 
 // If you have other services like a database context, you can add them here:
 // builder.Services.AddDbContext<ApplicationDbContext>(options => ...);
@@ -24,6 +30,12 @@ var app = builder.Build();
 if (app.Environment.IsDevelopment())
 {
     app.UseDeveloperExceptionPage(); // Show detailed errors in development.
+    app.UseSwagger(); // Enable Swagger UI
+    app.UseSwaggerUI(c =>
+    {
+        c.SwaggerEndpoint("/swagger/v1/swagger.json", "API v1"); // Setup the Swagger endpoint
+        c.RoutePrefix = "swagger"; // Makes Swagger UI available at the root
+    });
 }
 else
 {

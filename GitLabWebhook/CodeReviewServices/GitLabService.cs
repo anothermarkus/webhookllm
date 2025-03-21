@@ -1,6 +1,7 @@
 using System.Net.Http;
 using System.Text;
 using System.Threading.Tasks;
+using Models;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 
@@ -17,9 +18,94 @@ namespace CodeReviewServices
         {
             _gitlabToken = Environment.GetEnvironmentVariable("GITLABTOKEN");
             _gitlabBaseURL = configuration["GitLab:ApiBaseUrl"];
-            var _httpClient = new HttpClient();
-            _httpClient.DefaultRequestHeaders.Add("Private-Token", _gitlabToken);
+            _httpClient = new HttpClient();
+            _httpClient.DefaultRequestHeaders.Add("private-token", _gitlabToken);
         }
+
+
+        public async Task<List<FileDiff>> GetMergeRequestDetailsFromUrl(string url)
+        {
+            string mrId = GetMergeRequestIdFromUrl(url);
+            string projectPath = GetProjectPathFromUrl(url);
+
+            if (mrId != null && projectPath != null)
+            {
+                return await FetchMRDetails(projectPath, mrId);
+            }
+
+            throw new Exception("Not able to fetch MR Details");
+        }
+
+        private string GetMergeRequestIdFromUrl(string url)
+        {
+            Uri uri = new Uri(url);
+            var segments = uri.AbsolutePath.Split('/');
+            return segments[segments.Length - 1]; // The last segment should be the MR ID
+        }
+
+        private string GetProjectPathFromUrl(string url)
+        {
+            Uri uri = new Uri(url);
+            var segments = uri.AbsolutePath.Split('/');
+
+            // The project path starts right after the domain and ends before the merge_requests part
+            // The project path includes everything between `gitlab.dell.com` and `/merge_requests/{mrId}`
+            int mergeRequestIndex = Array.IndexOf(segments, "merge_requests");
+
+            // Combine everything from the beginning to before "merge_requests"
+            return string.Join("/", segments, 1, mergeRequestIndex - 1);
+        }
+
+        private async Task<List<FileDiff>> FetchMRDetails(string projectPath, string mrId)
+        {
+            string apiUrl = $"{_gitlabBaseURL}/{Uri.EscapeDataString(projectPath)}/merge_requests/{mrId}/changes";
+
+            HttpResponseMessage response = await _httpClient.GetAsync(apiUrl);
+
+            if (response.IsSuccessStatusCode)
+            {
+                string responseBody = await response.Content.ReadAsStringAsync();
+                JObject mrDetails = JObject.Parse(responseBody);
+
+                var diffRefs = mrDetails["diff_refs"];
+
+                string baseSha = diffRefs["base_sha"]?.ToString();
+                string headSha = diffRefs["head_sha"]?.ToString();
+                string startSha = diffRefs["start_sha"]?.ToString();
+
+                var changes = mrDetails["changes"];
+
+                List<FileDiff> diffs = new List<FileDiff>();
+
+                foreach (var change in changes)
+                {
+                    string fileName = change["new_path"].ToString();
+                    string oldFileName = change["old_path"]?.ToString();
+                    string diff = change["diff"].ToString();
+
+                    var fileDiff = new FileDiff
+                    {
+                        FileName = fileName,
+                        BaseSha = baseSha,
+                        HeadSha = headSha,
+                        StartSha = startSha,
+                        Diff = diff,
+                        HasSuggestion = false
+
+                    };
+                    diffs.Add(fileDiff);
+                }
+
+
+                return diffs;
+            }
+
+            throw new Exception("Not able to fetch changes from mr {apiUrl}");
+
+
+        }
+
+    
 
         public async Task<string> GetMergeRequestFiles(string projectId, string mergeRequestURL)
         {

@@ -1,3 +1,4 @@
+using System.Buffers.Text;
 using System.Collections.Generic;
 using System.Net.Http;
 using System.Text;
@@ -7,6 +8,7 @@ using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Configuration;
 using Models;
+using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 
 namespace GitLabWebhook.Controllers
@@ -35,8 +37,12 @@ namespace GitLabWebhook.Controllers
             _gitLabService = new GitLabService(_configuration);
         }
 
-        [HttpGet]
-        public async Task<IActionResult> Get()
+        /// <summary>
+        /// Get a sample feedback from the OpenAI service for code review
+        /// </summary>
+        /// <returns>Sample feedback from OpenAI for code review</returns>
+        [HttpGet("sampleopenaifeedback")]
+        public async Task<IActionResult> GetSampleFeedback()
         {
             var reviewCriteria = new List<string>
             {
@@ -53,17 +59,63 @@ namespace GitLabWebhook.Controllers
                      console.log(x);
                  }";
 
-            var service = new OpenAIService();
-            var feedback = await service.ReviewCodeAsync(code, reviewCriteria);
-
-            Console.WriteLine(feedback);
+            var openAIService = new OpenAIService();
+            var feedback = await openAIService.ReviewCodeAsync(code, reviewCriteria);
 
             return Ok(feedback);
         }
 
-        // POST api/gitlabwebhook
-        [HttpPost]
-        public async Task<IActionResult> Post([FromBody] JObject webhookPayload)
+
+        /// <summary>
+        /// Retrieves details of a specific merge request based on the MR ID (or string).
+        /// e.g. https://gitlab.dell.com/seller/dsa/production/DSAPlatform/qto-quote-create/draft-quote/DSA-CartService/merge_requests/1418
+        ///         
+        /// </summary>
+        /// <param name="mrString">The merge request identifier (string) passed as part of the route.</param>
+        /// <returns>Details of the specified merge request.</returns>
+        [HttpGet("getmrDetails")]
+        public async Task<IActionResult> GetMergeRequestDetails(string url)
+        {
+            List<FileDiff> mrDetails = await _gitLabService.GetMergeRequestDetailsFromUrl(url);
+            return Ok(mrDetails); // Return MR details as a response
+        }
+
+        [HttpGet("openAILLMReview")]
+        public async Task<IActionResult> GetOpenAILLMReview(string url)
+        {
+            List<FileDiff> mrDetails = await _gitLabService.GetMergeRequestDetailsFromUrl(url);
+
+            var reviewCriteria = new List<string>
+            {
+                "You are an experienced code reviewer, and I am providing you with a JSON array of file changes for a merge request (MR). Each item in the array represents a file change in the MR.",
+                "Here is the JSON array of file changes (in a list). Review each file change thoroughly for potential issues, such as bugs, bad practices, inefficient code, security vulnerabilities, or any other improvements you might suggest. " +
+                "For each file change, please provide the following updates in your response JSON:",
+                "- `FileName`: The name of the file being reviewed. This should be provided as is.",
+                "- `LLMComment`: A comment or feedback about the file change. If no comment is necessary, leave it as an empty string. If you suggest a change or improvement, provide it here.",
+                "- `LineForComment`: The line number where the change is occurring, or where you suggest adding a comment. If no specific line needs a comment, set this to `0`.",
+                "- `HasSuggestion`: A boolean value. Set `true` if you have a suggestion for this change or feedback, otherwise set it to `false` if there are no comments or suggestions.",
+                "Your response should follow the exact structure I provide below. Please return the updated JSON array with the `FileName`, `LLMComment`, `LineForComment`, and `HasSuggestion` fields updated.",
+                "Ensure that the `LineForComment` points to a specific line in the `Diff` (if applicable) or set it to `0` if no specific line needs a comment. If you have any suggestions, set `HasSuggestion` to `true`; otherwise, set it to `false`.",
+                "Please respond with the updated JSON array and do not modify the structure of the original input. Only update the fields: `FileName`, `LLMComment`, `LineForComment`, and `HasSuggestion`."
+            };
+
+            // Serialize the List<FileDiff> to JSON
+            var jsonData = JsonConvert.SerializeObject(mrDetails);
+
+            var feedback = await _openAiService.ReviewCodeAsync(jsonData, reviewCriteria);
+
+
+            return Ok(feedback); // Return MR details as a response
+        }
+
+
+        /// <summary>
+        /// What Gitlab calls when MR Event happens
+        /// </summary>
+        /// <param name="webhookPayload"></param>
+        /// <returns></returns>
+        [HttpPost("sink")]
+        public async Task<IActionResult> PostGitLabWebhook([FromBody] JObject webhookPayload)
         {
             Console.WriteLine(webhookPayload);
 
@@ -83,34 +135,11 @@ namespace GitLabWebhook.Controllers
             string targetRepoPath = mrObject["target"]["path_with_namespace"].ToString();
 
             // Call to GetChangedFilesAsyncAndLeaveFeedback
-            await GetChangedFilesAsyncAndLeaveFeedback(
-                gitLabApiBaseUrl,
-                targetRepoPath,
-                mrID,
-                gitLabApiToken
-            );
-
-            return Ok(
-                new GitLabWebhookResponse
-                {
-                    Status = "received",
-                    Message = "Merge Request Event Processed",
-                }
-            );
-        }
-
-        public async Task GetChangedFilesAsyncAndLeaveFeedback(
-            string baseURL,
-            string targetRepoPath,
-            string mrID,
-            string gitLabApiToken
-        )
-        {
             // Construct the URL for fetching the changes from the GitLab API
             string url =
-                $"{baseURL}/{Uri.EscapeDataString(targetRepoPath)}/merge_requests/{mrID}/changes";
+                $"{gitLabApiBaseUrl}/{Uri.EscapeDataString(targetRepoPath)}/merge_requests/{mrID}/changes";
 
-            Console.WriteLine(baseURL);
+            Console.WriteLine(gitLabApiBaseUrl);
             Console.WriteLine(url);
             Console.WriteLine(gitLabApiToken);
 
@@ -148,7 +177,7 @@ namespace GitLabWebhook.Controllers
             var diffLines = diff.Split('\n');
             //int line1 = 1; // Typically, line 1 in the diff.       
 
-           
+
 
             var fileDiff = new FileDiff
             {
@@ -177,6 +206,16 @@ namespace GitLabWebhook.Controllers
                 targetRepoPath,
                 gitLabApiToken
             );
+
+            return Ok(
+                new GitLabWebhookResponse
+                {
+                    Status = "received",
+                    Message = "Merge Request Event Processed",
+                }
+            );
         }
+
+       
     }
 }
