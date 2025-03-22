@@ -1,5 +1,8 @@
 {
-    "GitLab": {
-        "ApiBaseUrl": "https://gitlab.dell.com/api/v4/projects"
-    }
+  "GitLab": {
+    "ApiBaseUrl": "https://gitlab.dell.com/api/v4/projects",
+    "RepositoryBaseURL": "https://gitlab.dell.com/"
+
+
+  }
 }

@@ -3,6 +3,7 @@ namespace Models
     public class FileDiff
     {
         public string FileName { get; set; }
+        public string FileContents { get; set; }
         public string BaseSha { get; set; }
         public string StartSha { get; set; }
         public string HeadSha { get; set; }

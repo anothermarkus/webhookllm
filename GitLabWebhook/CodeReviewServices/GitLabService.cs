@@ -13,11 +13,13 @@ namespace CodeReviewServices
         private readonly string _gitlabToken;
         private readonly string _gitlabBaseURL;
         private readonly HttpClient _httpClient;
+        private readonly string _repositoryBaseURL;
 
         public GitLabService(IConfiguration configuration)
         {
             _gitlabToken = Environment.GetEnvironmentVariable("GITLABTOKEN");
             _gitlabBaseURL = configuration["GitLab:ApiBaseUrl"];
+            _repositoryBaseURL = configuration["GitLab:RepositoryBaseURL"];
             _httpClient = new HttpClient();
             _httpClient.DefaultRequestHeaders.Add("private-token", _gitlabToken);
         }
@@ -43,6 +45,7 @@ namespace CodeReviewServices
             return segments[segments.Length - 1]; // The last segment should be the MR ID
         }
 
+        // TODO: Handle as well with /-/ e.g. -- https://gitlab.dell.com/seller/dsa/production/DSAPlatform/qto-quote-create/draft-quote/DSA-CartService/-/merge_requests/1375
         private string GetProjectPathFromUrl(string url)
         {
             Uri uri = new Uri(url);
@@ -67,8 +70,10 @@ namespace CodeReviewServices
                 string responseBody = await response.Content.ReadAsStringAsync();
                 JObject mrDetails = JObject.Parse(responseBody);
 
+                var source_branch = mrDetails["source_branch"];
                 var diffRefs = mrDetails["diff_refs"];
 
+                string commit_sha = mrDetails["sha"]?.ToString();
                 string baseSha = diffRefs["base_sha"]?.ToString();
                 string headSha = diffRefs["head_sha"]?.ToString();
                 string startSha = diffRefs["start_sha"]?.ToString();
@@ -83,9 +88,14 @@ namespace CodeReviewServices
                     string oldFileName = change["old_path"]?.ToString();
                     string diff = change["diff"].ToString();
 
+                    var fileURL = $"{_gitlabBaseURL}/{Uri.EscapeDataString(projectPath)}/repository/files/{Uri.EscapeDataString(fileName)}/raw?ref={commit_sha}";
+
+                    var fileContents = await _httpClient.GetStringAsync(fileURL);
+
                     var fileDiff = new FileDiff
                     {
                         FileName = fileName,
+                        FileContents = fileContents,
                         BaseSha = baseSha,
                         HeadSha = headSha,
                         StartSha = startSha,

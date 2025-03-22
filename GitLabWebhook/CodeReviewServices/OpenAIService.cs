@@ -60,7 +60,13 @@ namespace CodeReviewServices
             var messages = new List<ChatMessage> { new UserChatMessage(prompt) };
 
             // Request completion from the OpenAI API
-            var result = await _chatClient.CompleteChatAsync(messages);
+
+            var chatCompletionOptions = new ChatCompletionOptions
+            {
+                Temperature = 0.7f,  // Set the temperature (controls randomness)
+            };
+
+            var result = await _chatClient.CompleteChatAsync(messages, chatCompletionOptions);
 
             // Return the assistant's feedback
             return result.Value.Content[0].Text;
