@@ -1,6 +1,8 @@
 {
-    "GitLab": {
-        "ApiBaseUrl": "https://gitlab.xyz.com/api/v4/projects",
-        "PrivateToken": "XYZ"
-    }
+  "GitLab": {
+    "ApiBaseUrl": "https://gitlab.dell.com/api/v4/projects",
+    "RepositoryBaseURL": "https://gitlab.dell.com/"
+
+
+  }
 }
