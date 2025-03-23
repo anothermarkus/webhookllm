@@ -32,3 +32,4 @@ TODO
 - Have the standards/criteria be flexible via dynamic configuration based on how the service is managing the MRs
 - Introspection into how much compute power and/or time is spent per suggestion
 - Parallelize suggestions across all files, or submit multiple files together, only review certain files: .ts, .cs  standards for each file
+- Consideradding LangFuse to monitor performance
