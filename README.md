@@ -7,9 +7,8 @@ Git Webhook API integration with LLM
 Use webhook.site to test https://webhook.site/
 
 Replace config.json with actual data and run
-"dotnet test" from the main folder will run the communciation with gitlab
+set your OS env variables so this doesn't blow.
 
-off the branch openAIcallsWIP .. running the webservice you can provide an MR it will actually give a nice structured repsonse.
 
 ![image](https://github.com/user-attachments/assets/5c8e8237-a9e2-40f6-b784-3dfe90b691e3)
 
@@ -17,7 +16,8 @@ Improved MR review, fed the entire filename into review, will consider summarizi
 
 LLM is not deterministic, so it will give a different response for the same code review, depending on the run!
 
-![image](https://github.com/user-attachments/assets/78fb224d-f361-47d3-91e4-001366f05346)
+
+![image](https://github.com/user-attachments/assets/d85d95cb-e65a-4f34-bc07-bb1c8b58941a)
 
 
 Documents to reference for this project
