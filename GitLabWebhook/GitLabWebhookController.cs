@@ -7,6 +7,7 @@ using System.Text;
 using System.Threading.Channels;
 using System.Threading.Tasks;
 using CodeReviewServices;
+using GitLabWebhook.models;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Configuration;
@@ -64,7 +65,7 @@ namespace GitLabWebhook.Controllers
                  }";
 
             var openAIService = new OpenAIService();
-            var feedback = await openAIService.ReviewCodeAsync(code, reviewCriteria);
+            var feedback = await openAIService.ReviewCodeAsync(code);
 
             return Ok(feedback);
         }
@@ -75,146 +76,52 @@ namespace GitLabWebhook.Controllers
         /// e.g. https://gitlab.dell.com/seller/dsa/production/DSAPlatform/qto-quote-create/draft-quote/DSA-CartService/merge_requests/1418
         ///         
         /// </summary>
-        /// <param name="mrString">The merge request identifier (string) passed as part of the route.</param>
-        /// <returns>Details of the specified merge request.</returns>
+        /// <param name="mrString">The merge request URL (string) passed as part of the route.</param>
+        /// <returns>Details of the specified merge request NO update to the MR.</returns>
         [HttpGet("getmrDetails")]
         public async Task<IActionResult> GetMergeRequestDetails(string url)
         {
-            List<FileDiff> mrDetails = await _gitLabService.GetMergeRequestDetailsFromUrl(url);
+            MRDetails mrDetails = await _gitLabService.GetMergeRequestDetailsFromUrl(url);
             return Ok(mrDetails); // Return MR details as a response
         }
 
+        /// <summary>
+        /// Generates MR comments
+        /// e.g. https://gitlab.dell.com/seller/dsa/production/DSAPlatform/qto-quote-create/draft-quote/DSA-CartService/-/merge_requests/1375
+        ///         
+        /// </summary>
+        /// <param name="mrString">The merge request URL (string) passed as part of the route.</param>
+        /// <returns>LLM Generated Feedback on the MR itself</returns>
         [HttpGet("openAILLMReview")]
         public async Task<IActionResult> GetOpenAILLMReview(string url)
         {
-            List<FileDiff> mrDetails = await _gitLabService.GetMergeRequestDetailsFromUrl(url);
-
-
-            //var reviewCriteria = new List<string>
-            //{
-            //    "You are an Enterprise Code Assistant ensuring the code follows best practices and I am providing you with a JSON array of file changes for a merge request (MR). " +
-            //    "Each item in the array represents a file change in the MR.",
-
-            //    "Review each file change thoroughly for these code standards:",
-
-            //     // Code Style               
-            //    "Ensure adherence to DRY (Don't Repeat Yourself) principle by avoiding code duplication and reusing code effectively.",
-            //    "Maintain cyclomatic complexity under 10; break down complex methods into smaller, manageable ones.",
-            //    "Avoid deep nesting; use early returns for cleaner logic flow.",
-            //    "Use null-conditional operators (?.) and null-coalescing operators (??) for safe null value access.",
-            //    "Implement guard clauses to handle null or invalid inputs early in methods.",
-
-            //    // Memory Management
-            //    "Always use 'using' statements for disposable objects to ensure automatic resource disposal.",
-            //    "Minimize memory leaks by unsubscribing from events when no longer needed.",
-            //    "Dispose of unmanaged resources properly and be mindful of large object retention in memory.",
-            //    "Avoid unnecessary object creation; use weak references or caching where applicable.",
-
-            //    // Error Handling
-            //    "Use try-catch blocks to handle exceptions; catch specific exceptions, not generic ones.",
-            //    "Always use 'finally' for cleanup operations to release resources.",
-            //    "Avoid silent failures; log exceptions for troubleshooting and debugging.",
-            //    "Throw custom exceptions only for business logic errors, not for regular control flow.",
-            //    "Don't use exceptions for control flow; use conditional checks instead.",
-
-            //    // Thread Handling & Async/Await
-            //    "Use async/await for asynchronous programming; avoid manually managing threads.",
-            //    "Use ConfigureAwait(false) to avoid deadlocks in non-UI thread operations.",
-            //    "Avoid blocking async calls (e.g., don't use Result or Wait()).",
-            //    "Ensure thread safety by using locks or thread-safe collections when accessing shared resources.",
-            //    "Use CancellationToken for graceful cancellation of long-running async operations.",
-            //    "Avoid using Thread.Sleep() in async code; prefer Task.Delay() for non-blocking waits.",
-
-            //    "For each file change, please provide feedback in the following JSON format:",
-
-            //    "- `FileName`: The name of the file being reviewed. This should be provided as is.",
-            //    "- `LLMComment`: A comment or feedback about the file change. If no comment is necessary, leave it as an empty string. If you suggest a change or improvement, provide it here.",
-            //    "- `LineForComment`: The line number where you are suggesting a change **within the context of the diff**. If there is no specific line to comment on, use 0.",
-
-            //    "Ensure that the `LineForComment` refers to a specific line in the diff where you have feedback. If there is no suggestion, set `LineForComment` to 0.",
-
-            //    "Please note: `string.IsNullOrWhiteSpace` is an extension method, so you do not need to manually check for null. It already handles null checks internally. Make sure not to suggest adding any additional null checks where `string.IsNullOrWhiteSpace` is used.",
-
-            //    "The code should be self-documenting and should not require additional comments or clarification about its behavior.",
-
-            //    "Please respond with a JSON array only. The structure should be [ `FileName`, `LLMComment`, `LineForComment` ]."
-            //};
-
-            // LLM is having trouble with line numbers...
-
-
-            // gleaned from: https://cookbook.openai.com/examples/third_party/code_quality_and_security_scan_with_github_actions
-            //List<string> prompt = new List<string>
-            //{
-            //    "You are an Enterprise Code Assistant. Review each code snippet below for its adherence to the following categories",
-            //    "1) Code Style & Formatting",
-            //    "2) Security & Compliance",
-            //    "3) Error Handling & Logging",
-            //    "4) Readability & Maintainability",
-            //    "5) Performance & Scalability",
-            //    "6) Testing & Quality Assurance",
-            //    "7) Documentation & Version Control",
-            //    "8) Accessibility & Internationalization",
-            //    "Create a table and assign a rating of 'extraordinary', 'acceptable', or 'poor' for each category. Return a markdown table titled 'Enterprise Standards' with rows for each category and columns for 'Category' and 'Rating'",
-            //    "Here are the changed file contents to analyze:"
-            //};
-
-            var reviewCriteria = new List<string>
-            {
-                "You are an Enterprise Code Assistant ensuring the code follows best practices and I am providing you with a JSON array of file changes for a merge request (MR). " +
-                "Each item in the array represents a file change in the MR.",
-
-                "Review each file change thoroughly for these code standards:",
-
-                 // Code Style               
-                "Ensure adherence to DRY (Don't Repeat Yourself) principle by avoiding code duplication and reusing code effectively.",
-                "Maintain cyclomatic complexity under 10; break down complex methods into smaller, manageable ones.",
-                "Avoid deep nesting; use early returns for cleaner logic flow.",
-                "Use null-conditional operators (?.) and null-coalescing operators (??) for safe null value access.",
-                "Implement guard clauses to handle null or invalid inputs early in methods.",
-
-                // Memory Management
-                "Always use 'using' statements for disposable objects to ensure automatic resource disposal.",
-                "Minimize memory leaks by unsubscribing from events when no longer needed.",
-                "Dispose of unmanaged resources properly and be mindful of large object retention in memory.",
-                "Avoid unnecessary object creation; use weak references or caching where applicable.",
-
-                // Error Handling
-                "Use try-catch blocks to handle exceptions; catch specific exceptions, not generic ones.",
-                "Always use 'finally' for cleanup operations to release resources.",
-                "Avoid silent failures; log exceptions for troubleshooting and debugging.",
-                "Throw custom exceptions only for business logic errors, not for regular control flow.",
-                "Don't use exceptions for control flow; use conditional checks instead.",
-
-                // Thread Handling & Async/Await
-                "Use async/await for asynchronous programming; avoid manually managing threads.",
-                "Use ConfigureAwait(false) to avoid deadlocks in non-UI thread operations.",
-                "Avoid blocking async calls (e.g., don't use Result or Wait()).",
-                "Ensure thread safety by using locks or thread-safe collections when accessing shared resources.",
-                "Use CancellationToken for graceful cancellation of long-running async operations.",
-                "Avoid using Thread.Sleep() in async code; prefer Task.Delay() for non-blocking waits.",
-
-                "For each file change, please provide feedback in the following format:",
-
-                "FileName: The name of the file being reviewed. ",
-                "Comment: A comment or feedback about the file chang.  If no comment is necessary, leave it as an empty string. If you suggest a change or improvement, provide it here along with the line number.",
-               
-                "Please note: `string.IsNullOrWhiteSpace` is an extension method, so you do not need to manually check for null. It already handles null checks internally. Make sure not to suggest adding any additional null checks where `string.IsNullOrWhiteSpace` is used.",
-
-                "The code should be self-documenting and should not require additional comments or clarification about its behavior.",
-                "The code should be self-documenting and should not require additional comments or clarification about its behavior.",
-           };
-
-
+            MRDetails mrDetails = await _gitLabService.GetMergeRequestDetailsFromUrl(url);
 
             // Serialize the List<FileDiff> to JSON
-            var jsonData = JsonConvert.SerializeObject(mrDetails);
+            var jsonData = JsonConvert.SerializeObject(mrDetails.fileDiffs);
 
-            var feedback = await _openAiService.ReviewCodeAsync(jsonData, reviewCriteria);
-
+            var feedback = await _openAiService.ReviewCodeAsync(jsonData);
 
             return Ok(feedback); // Return MR details as a response
         }
+
+        [HttpPost("addopenAILLMReviewComment")]
+        public async Task<IActionResult> POSTOpenAILLMReviewComment(string url)
+        {
+            MRDetails mrDetails = await _gitLabService.GetMergeRequestDetailsFromUrl(url);
+
+            // Serialize the List<FileDiff> to JSON
+            var jsonData = JsonConvert.SerializeObject(mrDetails.fileDiffs);
+
+            var feedback = await _openAiService.ReviewCodeAsync(jsonData);
+
+           
+
+            await _gitLabService.PostCommentToMR(feedback, mrDetails.MRId, mrDetails.TargetRepoPath);
+
+            return Ok(feedback); // Return MR details as a response
+        }
+
 
 
         /// <summary>
