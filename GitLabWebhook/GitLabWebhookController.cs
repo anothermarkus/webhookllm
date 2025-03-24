@@ -7,6 +7,7 @@ using System.Text;
 using System.Threading.Channels;
 using System.Threading.Tasks;
 using CodeReviewServices;
+using GitLabWebhook.CodeReviewServices;
 using GitLabWebhook.models;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
@@ -32,6 +33,7 @@ namespace GitLabWebhook.Controllers
         private readonly HttpClient _httpClient;
         private readonly OpenAIService _openAiService;
         private readonly GitLabService _gitLabService;
+        private readonly JiraService _jiraService;
 
         // Inject IConfiguration to access the app settings and initialize the HttpClient
         public GitLabWebhookController(IConfiguration configuration)
@@ -40,6 +42,8 @@ namespace GitLabWebhook.Controllers
             _httpClient = new HttpClient(); // Create a single instance of HttpClient
             _openAiService = new OpenAIService();
             _gitLabService = new GitLabService(_configuration);
+            _jiraService = new JiraService(_configuration);
+
         }
 
         /// <summary>
@@ -97,12 +101,17 @@ namespace GitLabWebhook.Controllers
         {
             MRDetails mrDetails = await _gitLabService.GetMergeRequestDetailsFromUrl(url);
 
-            // Serialize the List<FileDiff> to JSON
+            var jiraTargetBranch = await _jiraService.GetReleaseTarget(mrDetails.JIRA);
+            
+            // TODO Create Service to Compare validity
             var jsonData = JsonConvert.SerializeObject(mrDetails.fileDiffs);
 
             var feedback = await _openAiService.ReviewCodeAsync(jsonData);
 
-            return Ok(feedback); // Return MR details as a response
+            //TODO Start aggregating feedback from multiple sources
+
+
+            return Ok("JIRA Target Branch: {jiraTargetBranch}\n MR Target Branch: {mrDetails.TargetBranch}\n {feedback}"); // Return MR details as a response
         }
 
         [HttpPost("addopenAILLMReviewComment")]

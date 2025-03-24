@@ -1,6 +1,7 @@
 using System.Net.Http;
 using System.Text;
 using System.Threading.Tasks;
+using GitLabWebhook.CodeReviewServices;
 using GitLabWebhook.models;
 using Models;
 using Newtonsoft.Json;
@@ -28,53 +29,22 @@ namespace CodeReviewServices
 
         public async Task<MRDetails> GetMergeRequestDetailsFromUrl(string url)
         {
-            string mrId = GetMergeRequestIdFromUrl(url);
-            string projectPath = GetProjectPathFromUrl(url);
+            string mrId = StringParserService.GetMergeRequestIdFromUrl(url);
+            string projectPath = StringParserService.GetProjectPathFromUrl(url);
 
             if (mrId != null && projectPath != null)
             {
-                var fileDiffs =  await FetchMRDetails(projectPath, mrId);
+                var fileDiffs =  await FetchMRDetails(url, projectPath, mrId);
 
-                return new MRDetails
-                {
-                    MRId = mrId,
-                    TargetRepoPath = projectPath,
-                    fileDiffs = fileDiffs
-                };
+               
             }
 
             throw new Exception("Not able to fetch MR Details");
         }
 
-        public static string GetMergeRequestIdFromUrl(string url)
+        private async Task<MRDetails> FetchMRDetails(string url, string projectPath, string mrId)
         {
-            Uri uri = new Uri(url);
-            var segments = uri.AbsolutePath.Split('/');
-            return segments[segments.Length - 1]; // The last segment should be the MR ID
-        }
-
-
-        public static string GetProjectPathFromUrl(string url)
-        {
-            Uri uri = new Uri(url);
-            var segments = uri.AbsolutePath.Split('/');
-
-            // Find the "merge_requests" part and exclude anything after that (including `/-/` and the merge request ID)
-            int mergeRequestIndex = Array.IndexOf(segments, "merge_requests");
-
-            // We need to handle the special case where `/-/` exists, and it's part of the URL.
-            // If we find `/-/`, we need to skip that as well.
-            if (mergeRequestIndex > 0 && segments[mergeRequestIndex - 1] == "-")
-            {
-                mergeRequestIndex--; // Exclude `/-/` by adjusting the index
-            }
-
-            // Combine everything from the beginning to before "merge_requests" (and exclude `/-/` if present)
-            return string.Join("/", segments, 1, mergeRequestIndex - 1);
-        }
-
-        private async Task<List<FileDiff>> FetchMRDetails(string projectPath, string mrId)
-        {
+        
             string apiUrl = $"{_gitlabBaseURL}/{Uri.EscapeDataString(projectPath)}/merge_requests/{mrId}/changes";
 
             HttpResponseMessage response = await _httpClient.GetAsync(apiUrl);
@@ -85,7 +55,9 @@ namespace CodeReviewServices
                 JObject mrDetails = JObject.Parse(responseBody);
 
                 var source_branch = mrDetails["source_branch"];
+                var target_branch = mrDetails["target_branch"]?.ToString();
                 var diffRefs = mrDetails["diff_refs"];
+                var title = mrDetails["title"]?.ToString();
 
                 string commit_sha = mrDetails["sha"]?.ToString();
                 string baseSha = diffRefs["base_sha"]?.ToString();
@@ -114,23 +86,29 @@ namespace CodeReviewServices
                         HeadSha = headSha,
                         StartSha = startSha,
                         Diff = diff,
-                        HasSuggestion = false
-
+                        HasSuggestion = false,
                     };
                     diffs.Add(fileDiff);
                 }
 
 
-                return diffs;
+                return new MRDetails
+                {
+                    MRId = mrId,
+                    TargetRepoPath = projectPath,
+                    fileDiffs = diffs,
+                    Title = title,
+                    JIRA = StringParserService.GetJIRATicket(title),
+                    TargetBranch = target_branch
+                };
+
+               
             }
 
             throw new Exception("Not able to fetch changes from mr {apiUrl}");
-
-
         }
 
-    
-
+ 
         public async Task<string> GetMergeRequestFiles(string projectId, string mergeRequestURL)
         {
             var response = await _httpClient.GetStringAsync(mergeRequestURL);

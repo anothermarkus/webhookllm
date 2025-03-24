@@ -1,5 +1,6 @@
 ﻿using Castle.Core.Configuration;
 using CodeReviewServices;
+using GitLabWebhook.CodeReviewServices;
 using Microsoft.Extensions.Configuration;
 using System;
 using System.Collections.Generic;
@@ -11,12 +12,12 @@ namespace GitLabWebhook.Tests.CodeReviewServices
 {
    
 
-    public class GitLabServiceTest
+    public class StringParserServiceTest
     {
 
         private readonly GitLabService _gitLabService;
 
-        public GitLabServiceTest()
+        public StringParserServiceTest()
         {
             var configurationBuilder = new ConfigurationBuilder()
                 .SetBasePath(Directory.GetCurrentDirectory()) // Set the base path to the current directory (tests folder)
@@ -38,12 +39,26 @@ namespace GitLabWebhook.Tests.CodeReviewServices
             // All of the arranging was done in the Theory
 
             //Act
-            var projectPath = GitLabService.GetProjectPathFromUrl(inputURL);
+            var projectPath = StringParserService.GetProjectPathFromUrl(inputURL);
 
             //Assert
             Assert.Equal(expectedResult, projectPath);
         }
 
+        [Theory]
+        [InlineData("JIRA#QJ-7344; PROJECT :: FY26 :: My Funky Project :: Do the things :: ALL THE THINGS", "QJ-7344")]
+        public void ShouldParseJIRATicket(String inputTitle, String expectedResult)
+        {
+
+            //Arrange
+            // All of the arranging was done in the Theory
+
+            //Act
+            var jiraTicket = StringParserService.GetJIRATicket(inputTitle);
+
+            //Assert
+            Assert.Equal(expectedResult, jiraTicket);
+        }
 
     }
 
