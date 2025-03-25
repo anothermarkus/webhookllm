@@ -15,13 +15,11 @@ namespace CodeReviewServices
         private readonly string _gitlabToken;
         private readonly string _gitlabBaseURL;
         private readonly HttpClient _httpClient;
-        private readonly string _repositoryBaseURL;
 
         public GitLabService(IConfiguration configuration)
         {
             _gitlabToken = Environment.GetEnvironmentVariable("GITLABTOKEN");
             _gitlabBaseURL = configuration["GitLab:ApiBaseUrl"];
-            _repositoryBaseURL = configuration["GitLab:RepositoryBaseURL"];
             _httpClient = new HttpClient();
             _httpClient.DefaultRequestHeaders.Add("private-token", _gitlabToken);
         }
@@ -34,12 +32,10 @@ namespace CodeReviewServices
 
             if (mrId != null && projectPath != null)
             {
-                var fileDiffs =  await FetchMRDetails(url, projectPath, mrId);
-
-               
+                return await FetchMRDetails(url, projectPath, mrId);
             }
 
-            throw new Exception("Not able to fetch MR Details");
+            throw new Exception("Not able to fetch MR Details mrID or projectPath is null");
         }
 
         private async Task<MRDetails> FetchMRDetails(string url, string projectPath, string mrId)

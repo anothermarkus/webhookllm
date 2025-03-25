@@ -11,6 +11,13 @@ namespace GitLabWebhook.CodeReviewServices
             return segments[segments.Length - 1]; // The last segment should be the MR ID
         }
 
+        public static string ConvertJIRAToConfluence(string jiraReleaseTarget)
+        {
+            string firstPart = jiraReleaseTarget.Substring(0, 4).ToLower();  // "FY26" -> "fy26"
+            string secondPart = jiraReleaseTarget.Substring(jiraReleaseTarget.Length - 5);  // "-0303"
+            return $"{firstPart}{secondPart}";
+        }
+
         public static string GetProjectPathFromUrl(string url)
         {
             Uri uri = new Uri(url);

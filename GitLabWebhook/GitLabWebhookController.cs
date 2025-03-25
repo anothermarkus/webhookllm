@@ -34,6 +34,7 @@ namespace GitLabWebhook.Controllers
         private readonly OpenAIService _openAiService;
         private readonly GitLabService _gitLabService;
         private readonly JiraService _jiraService;
+        private readonly ConfluenceService _confluenceService;
 
         // Inject IConfiguration to access the app settings and initialize the HttpClient
         public GitLabWebhookController(IConfiguration configuration)
@@ -43,6 +44,7 @@ namespace GitLabWebhook.Controllers
             _openAiService = new OpenAIService();
             _gitLabService = new GitLabService(_configuration);
             _jiraService = new JiraService(_configuration);
+            _confluenceService = new ConfluenceService(_configuration);
 
         }
 
@@ -72,6 +74,35 @@ namespace GitLabWebhook.Controllers
             var feedback = await openAIService.ReviewCodeAsync(code);
 
             return Ok(feedback);
+        }
+
+        /// <summary>
+        /// Retrieves details of a specific merge request based on the MR ID (or string).
+        /// e.g. https://gitlab.dell.com/seller/dsa/production/DSAPlatform/qto-quote-create/draft-quote/DSA-CartService/merge_requests/1418
+        ///         
+        /// </summary>
+        /// <param name="url">The merge request URL (string) passed as part of the route.</param>
+        /// <returns>Sanity Check if target branch is valid for JIRA Ticket</returns>
+        [HttpGet("getTargetBranchSanityCheck")]
+        public async Task<IActionResult> GetTargetBranchSanityCheck(string url)
+        {
+
+            // 1. Get Target Branch from MR (could be primary, or could be release branch, based on strategy)
+            MRDetails mrDetails = await _gitLabService.GetMergeRequestDetailsFromUrl(url);
+            
+            // 2. Get Target Release from JIRA
+            var jiraTargetRelease = await _jiraService.GetReleaseTarget(mrDetails.JIRA);
+
+            var standardizedJiraReleaseTarget = StringParserService.ConvertJIRAToConfluence(jiraTargetRelease);
+
+            var targetBranchFromConfluence = await _confluenceService.GetTargetBranch(standardizedJiraReleaseTarget);
+
+            targetBranchFromConfluence = string.IsNullOrEmpty(targetBranchFromConfluence) ? "NONE!!!" : targetBranchFromConfluence;
+
+            String compareResults = $"Target Branch from MR: {mrDetails.TargetBranch} vs Target Branch from Confluence: {targetBranchFromConfluence} " +
+                $"vs Release Target from JIRA {jiraTargetRelease}\n";
+
+            return Ok(compareResults); 
         }
 
 
