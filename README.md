@@ -19,6 +19,9 @@ LLM is not deterministic, so it will give a different response for the same code
 
 ![image](https://github.com/user-attachments/assets/d85d95cb-e65a-4f34-bc07-bb1c8b58941a)
 
+Checks branches against JIRA/Confluence and the MR
+
+![image](https://github.com/user-attachments/assets/6920a917-02a6-419e-b6e1-3d345372789b)
 
 Documents to reference for this project
     // Review API Patterns https://github.com/openai/openai-dotnet/tree/OpenAI_2.1.0
