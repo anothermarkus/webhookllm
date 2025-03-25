@@ -1,9 +1,6 @@
-using Xunit;
 using Newtonsoft.Json.Linq;
-using System.Threading.Tasks;
 using GitLabWebhook.Controllers;
 using Microsoft.Extensions.Configuration;
-using Moq;
 using Microsoft.AspNetCore.Mvc;
 
 namespace GitLabWebhook.Tests
