@@ -1,8 +1,15 @@
 {
   "GitLab": {
-    "ApiBaseUrl": "https://gitlab.dell.com/api/v4/projects",
-    "RepositoryBaseURL": "https://gitlab.dell.com/"
+    "ApiBaseUrl": "https://gitlab.dell.com/api/v4/projects"
+  },
 
+  "JIRA": {
+    "ApiBaseUrl": "https://jira.dell.com",
+    "ReleaseTargetLabel": "customfield_10220"
+  },
 
+  "Confluence": {
+    "ApiBaseUrl": "https://confluence.dell.com",
+    "ReleaseBranchPageID": "1083769404"
   }
 }
