@@ -16,6 +16,7 @@ using Microsoft.VisualBasic;
 using Models;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
+using static System.Runtime.InteropServices.JavaScript.JSType;
 
 namespace GitLabWebhook.Controllers
 {
@@ -87,22 +88,106 @@ namespace GitLabWebhook.Controllers
         public async Task<IActionResult> GetTargetBranchSanityCheck(string url)
         {
 
+            
             // 1. Get Target Branch from MR (could be primary, or could be release branch, based on strategy)
             MRDetails mrDetails = await _gitLabService.GetMergeRequestDetailsFromUrl(url);
             
             // 2. Get Target Release from JIRA
             var jiraTargetRelease = await _jiraService.GetReleaseTarget(mrDetails.JIRA);
 
+            // fy26-0403
             var standardizedJiraReleaseTarget = StringParserService.ConvertJIRAToConfluence(jiraTargetRelease);
 
+            // primary or primary-fy26-0403
             var targetBranchFromConfluence = await _confluenceService.GetTargetBranch(standardizedJiraReleaseTarget);
 
             targetBranchFromConfluence = string.IsNullOrEmpty(targetBranchFromConfluence) ? "NONE!!!" : targetBranchFromConfluence;
 
-            String compareResults = $"Target Branch from MR: {mrDetails.TargetBranch} vs Target Branch from Confluence: {targetBranchFromConfluence} " +
-                $"vs Release Target from JIRA {jiraTargetRelease}\n";
+            var mrTargetBranch = mrDetails.TargetBranch;
 
-            return Ok(compareResults); 
+            
+
+            if (mrTargetBranch != targetBranchFromConfluence)
+            {
+                return Ok($"You've been a naughty little MR {mrTargetBranch} does not match release: {jiraTargetRelease} target branch derived from confluence {targetBranchFromConfluence} " +
+                    $"https://confluence.dell.com/display/DSA/FT4+-+Application+Lifecycle+Management+%28ALM%29+Strategy");
+            }
+               
+
+            return Ok($"Target Branch from MR: {mrDetails.TargetBranch} vs Target Branch from Confluence: {targetBranchFromConfluence} " +
+                $"vs Release Target from JIRA {jiraTargetRelease}\n");
+
+        }
+
+        [HttpPost("postTargetBranchSanityCheck")]
+        public async Task<IActionResult> PostTargetBranchSanityCheck(string url)
+        {
+
+            // 1. Get Target Branch from MR (could be primary, or could be release branch, based on strategy)
+            MRDetails mrDetails = await _gitLabService.GetMergeRequestDetailsFromUrl(url);
+
+            // 2. Get Target Release from JIRA
+            var jiraTargetRelease = await _jiraService.GetReleaseTarget(mrDetails.JIRA);
+
+            // fy26-0403
+            var standardizedJiraReleaseTarget = StringParserService.ConvertJIRAToConfluence(jiraTargetRelease);
+
+            // primary or primary-fy26-0403
+            var targetBranchFromConfluence = await _confluenceService.GetTargetBranch(standardizedJiraReleaseTarget);
+
+            targetBranchFromConfluence = string.IsNullOrEmpty(targetBranchFromConfluence) ? "NONE!!!" : targetBranchFromConfluence;
+
+            var mrTargetBranch = mrDetails.TargetBranch;
+
+
+
+           // Posting image to gitlab
+           // curl--request POST --form "file=@/path_to_your_image.png" "https://gitlab.example.com/api/v4/projects/:id/uploads" - H "PRIVATE-TOKEN: your_access_token"
+           // curl--request POST --data "body=Here is an inline image: ![Image](https://gitlab.example.com/uploads/your-image-id/image.png)" "https://gitlab.example.com/api/v4/projects/:id/merge_requests/:merge_request_iid/notes" - H "PRIVATE-TOKEN: your_access_token"
+
+
+            if (mrTargetBranch != targetBranchFromConfluence)
+            {
+
+                string tableBadResponse =
+                      $@" ### Branch Sanity Check - FAIL
+                        
+|         **System**              |       **Target**         |
+|---------------------------------|--------------------------|
+|  **JIRA Release Target**        | {jiraTargetRelease}      |  
+|  **JIRA->Confluence Branch** | {targetBranchFromConfluence}|
+|  **MR Target Branch**           | {mrDetails.TargetBranch} |
+
+:no_entry: Please confirm the correct target branch in your MR [FT4 - Application Lifecycle Management (ALM) Strategy](https://confluence.dell.com/display/DSA/FT4+-+Application+Lifecycle+Management+%28ALM%29+Strategy) ";
+
+               
+                await _gitLabService.PostCommentToMR(tableBadResponse, mrDetails.MRId, mrDetails.TargetRepoPath);
+
+                return Ok(tableBadResponse);
+            }
+
+            string goodMRResponse = $":white_check_mark: Target Branch from MR: {mrDetails.TargetBranch} vs Target Branch from Confluence: {targetBranchFromConfluence} " +
+               $"vs Release Target from JIRA {jiraTargetRelease}\n";
+            
+
+            string tableGoodResponse =
+                        $@" ### Branch Sanity Check - PASS
+                        
+|         **System**              |       **Target**         |
+|---------------------------------|--------------------------|
+|  **JIRA Release Target**        | {jiraTargetRelease}      |  
+|  **JIRA->Confluence Branch** | {targetBranchFromConfluence}|
+|  **MR Target Branch**           | {mrDetails.TargetBranch} |
+
+:white_check_mark: JIRA Target -> Confluence Table -> Merge Request Target ";
+
+            await _gitLabService.PostCommentToMR(tableGoodResponse, mrDetails.MRId, mrDetails.TargetRepoPath);
+
+            return Ok(tableGoodResponse);
+
+
+                
+            
         }
 
 
@@ -140,13 +225,11 @@ namespace GitLabWebhook.Controllers
             var feedback = await _openAiService.ReviewCodeAsync(jsonData);
 
             //TODO Start aggregating feedback from multiple sources
-
-
             return Ok("JIRA Target Branch: {jiraTargetBranch}\n MR Target Branch: {mrDetails.TargetBranch}\n {feedback}"); // Return MR details as a response
         }
 
         [HttpPost("addopenAILLMReviewComment")]
-        public async Task<IActionResult> POSTOpenAILLMReviewComment(string url)
+        public async Task<IActionResult> PostOpenAILLMReviewComment(string url)
         {
             MRDetails mrDetails = await _gitLabService.GetMergeRequestDetailsFromUrl(url);
 
