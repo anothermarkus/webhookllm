@@ -161,7 +161,7 @@ namespace GitLabWebhook.Controllers
 :no_entry: Please confirm the correct target branch in your MR [FT4 - Application Lifecycle Management (ALM) Strategy](https://confluence.dell.com/display/DSA/FT4+-+Application+Lifecycle+Management+%28ALM%29+Strategy) ";
 
                
-                await _gitLabService.PostCommentToMR(tableBadResponse, mrDetails.MRId, mrDetails.TargetRepoPath);
+                await _gitLabService.PostCommentToMR(tableBadResponse, mrDetails.MRId, mrDetails.TargetRepoPath, true, GitLabService.COMMENT_TYPE_DISCUSSION_NOTE);
 
                 return Ok(tableBadResponse);
             }
@@ -180,6 +180,9 @@ namespace GitLabWebhook.Controllers
 |  **MR Target Branch**           | {mrDetails.TargetBranch} |
 
 :white_check_mark: JIRA Target -> Confluence Table -> Merge Request Target ";
+
+
+            await _gitLabService.DismissReview("Branches look good, this comment has been dismissed.", mrDetails.MRId, mrDetails.TargetRepoPath, GitLabService.COMMENT_TYPE_DISCUSSION_NOTE);
 
             await _gitLabService.PostCommentToMR(tableGoodResponse, mrDetails.MRId, mrDetails.TargetRepoPath);
 

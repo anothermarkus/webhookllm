@@ -15,6 +15,7 @@ namespace CodeReviewServices
         private readonly string _gitlabToken;
         private readonly string _gitlabBaseURL;
         private readonly HttpClient _httpClient;
+        public static string COMMENT_TYPE_DISCUSSION_NOTE = "DiscussionNote";
 
         public GitLabService(IConfiguration configuration)
         {
@@ -112,9 +113,11 @@ namespace CodeReviewServices
         }
 
         // Post as comment to MR, rather than a specific line
-        public async Task PostCommentToMR(string comment, string mrID, string targetRepoPath)
+        // TODO: If same comment has been added, then skip it
+        public async Task PostCommentToMR(string comment, string mrID, string targetRepoPath, bool isblocking = false, string commentType = null)
         {
-            var commentBody = new { body = comment };
+            var commentBody = new { body = comment,
+                                    type = commentType };
 
             var jsonContent = JsonConvert.SerializeObject(commentBody);
             var content = new StringContent(jsonContent, Encoding.UTF8, "application/json");
@@ -122,9 +125,85 @@ namespace CodeReviewServices
             string url =
                 $"{_gitlabBaseURL}/{Uri.EscapeDataString(targetRepoPath)}/merge_requests/{mrID}/notes";
 
+            if (isblocking)
+            {
+                url = $"{_gitlabBaseURL}/{Uri.EscapeDataString(targetRepoPath)}/merge_requests/{mrID}/discussions";
+            }
+
             var response = await _httpClient.PostAsync(url, content);
             response.EnsureSuccessStatusCode();
         }
+
+        //TODO: If it's been resolved already, skip it
+        public async Task DismissReview(string dismissalMessage, string mrID, string targetRepoPath, string commentType)
+        {
+            // Find CommentType and dismiss if it exists
+
+            string url = $"{_gitlabBaseURL}/{Uri.EscapeDataString(targetRepoPath)}/merge_requests/{mrID}/discussions";
+            var response = await _httpClient.GetAsync(url);
+            response.EnsureSuccessStatusCode();
+
+            var content = await response.Content.ReadAsStringAsync();
+            var discussions = JsonConvert.DeserializeObject<List<dynamic>>(content);
+
+            if (discussions == null)
+            {
+                // No Notes
+                return;
+            }
+
+            string discussionId = null;
+            JObject matchingNote = null;
+
+            foreach (JObject discussion in discussions)
+            {
+                JArray notes = (JArray)discussion["notes"];
+
+                foreach (JObject note in notes)
+                {
+                    string body = note["body"].ToString();
+
+                    if (body.Contains("### Branch Sanity Check - FAIL"))
+                    {
+                        discussionId = discussion["id"].ToString();
+                        matchingNote = note;
+                        break; // Exit the loop once a match is found
+                    }
+                }
+            }
+
+
+
+            if (matchingNote == null)
+            {
+                // No note with the specified type found.
+                return;
+            }
+
+            var noteId = matchingNote["id"];
+            //var discussionId = matchingNote.discussion_id;
+
+            var updateNoteBody = new
+            {
+                body = $"{matchingNote["body"].ToString()}\n\n[{dismissalMessage}]"
+            };
+
+            // 1. Add a Resolve Note
+            // TODO: Consolidate -- &body={System.Web.HttpUtility.UrlEncode(dismissalMessage)
+            string updateNoteUrl = $"{_gitlabBaseURL}/{Uri.EscapeDataString(targetRepoPath)}/merge_requests/{mrID}/notes/{noteId}";
+            var jsonContent = JsonConvert.SerializeObject(updateNoteBody);
+            var contentToUpdate = new StringContent(jsonContent, Encoding.UTF8, "application/json");
+
+            var updateResponse = await _httpClient.PutAsync(updateNoteUrl, contentToUpdate);
+            updateResponse.EnsureSuccessStatusCode();
+
+            // 2. Dismiss The Note
+            string resolveUrl = $"{_gitlabBaseURL}/{Uri.EscapeDataString(targetRepoPath)}/merge_requests/{mrID}/discussions/{discussionId}?resolved=true";
+            var resolveResponse = await _httpClient.PutAsync(resolveUrl, null);
+            resolveResponse.EnsureSuccessStatusCode();
+        }
+
+
 
         // Post on a specific line
         public async Task<HttpResponseMessage> PostReviewFeedbackOnSpecificLine(
