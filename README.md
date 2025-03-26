@@ -23,8 +23,9 @@ Checks branches against JIRA/Confluence and the MR
 
 ![image](https://github.com/user-attachments/assets/1dce6770-f473-4824-ac8f-0115ec0a9456)
 
-New route that Posts updates to the MR 
-![image](https://github.com/user-attachments/assets/c9dbc279-ee4b-4af8-9afe-82df3d1e6bc4)
+New route that Posts updates to the MR along with autodismiss functionality when issue is resolved and called again.
+![image](https://github.com/user-attachments/assets/e058cc15-36fe-4d5a-b8ec-a0b1990972bb)
+
 
 
 
@@ -35,6 +36,7 @@ Documents to reference for this project
 
 
 TODO
+- Guard against duplicate comments
 - Add Embeddings to OpenAI calls which should provide context / code standards
 - Future feature to query JIRA check the target branch of the ticket compare to the branch being committed into
 - Have the standards/criteria be flexible via dynamic configuration based on how the service is managing the MRs
