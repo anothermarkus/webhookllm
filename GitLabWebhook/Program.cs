@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.FileProviders;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -42,6 +43,15 @@ else
     app.UseExceptionHandler("/Home/Error"); // Show generic errors in production.
     app.UseHsts(); // Strict Transport Security
 }
+
+app.UseStaticFiles();
+app.UseStaticFiles(new StaticFileOptions
+{
+    FileProvider = new PhysicalFileProvider(
+        Path.Combine(Directory.GetCurrentDirectory(), "images")),
+    RequestPath = "/images"
+});
+
 
 app.UseHttpsRedirection(); // Redirect HTTP requests to HTTPS.
 app.UseRouting(); // Enable routing.
