@@ -74,19 +74,22 @@ namespace CodeReviewServices
 
                     var fileURL = $"{_gitlabBaseURL}/{Uri.EscapeDataString(projectPath)}/repository/files/{Uri.EscapeDataString(fileName)}/raw?ref={commit_sha}";
 
-                    var fileContents = await _httpClient.GetStringAsync(fileURL);
-
-                    var fileDiff = new FileDiff
+                    try
                     {
-                        FileName = fileName,
-                        FileContents = fileContents,
-                        BaseSha = baseSha,
-                        HeadSha = headSha,
-                        StartSha = startSha,
-                        Diff = diff,
-                        HasSuggestion = false,
-                    };
-                    diffs.Add(fileDiff);
+                        var fileContents = await _httpClient.GetStringAsync(fileURL);
+
+                        var fileDiff = new FileDiff
+                        {
+                            FileName = fileName,
+                            FileContents = fileContents,
+                            BaseSha = baseSha,
+                            HeadSha = headSha,
+                            StartSha = startSha,
+                            Diff = diff,
+                            HasSuggestion = false,
+                        };
+                        diffs.Add(fileDiff);
+                    } catch (Exception) { /* Could be 404 MRs can have a deleted file */ }
                 }
 
 
@@ -114,7 +117,7 @@ namespace CodeReviewServices
         }
 
         // Post as comment to MR, rather than a specific line
-        // TODO: If same comment has been added, then skip it
+     
         public async Task PostCommentToMR(string comment, string mrID, string targetRepoPath, bool isblocking = false, string commentType = null)
         {
             var commentBody = new { body = comment,
@@ -135,11 +138,34 @@ namespace CodeReviewServices
             response.EnsureSuccessStatusCode();
         }
 
-        //TODO: If it's been resolved already, skip it
-        public async Task DismissReview(string dismissalMessage, string mrID, string targetRepoPath, string commentType)
+        public async Task<JObject> FindExistingNote(string mrID, string targetRepoPath, string matchingCommentSnippet)
         {
-            // Find CommentType and dismiss if it exists
+            string url = $"{_gitlabBaseURL}/{Uri.EscapeDataString(targetRepoPath)}/merge_requests/{mrID}/notes";
 
+            var response = await _httpClient.GetAsync(url);
+            response.EnsureSuccessStatusCode();
+
+            var content = await response.Content.ReadAsStringAsync();
+            var notes = JsonConvert.DeserializeObject<List<dynamic>>(content);
+            JObject matchingNote = null;
+
+            foreach (JObject note in notes)
+            {
+                string body = note["body"].ToString();
+
+                if (body.Contains(matchingCommentSnippet))
+                {
+                    matchingNote = note;
+                    return matchingNote;
+                }
+            }
+
+            return null;
+        }
+
+
+        public async Task<DiscussionDetail> FindExistingDiscussion(string mrID, string targetRepoPath, string matchingCommentSnippet)
+        {
             string url = $"{_gitlabBaseURL}/{Uri.EscapeDataString(targetRepoPath)}/merge_requests/{mrID}/discussions";
             var response = await _httpClient.GetAsync(url);
             response.EnsureSuccessStatusCode();
@@ -150,7 +176,7 @@ namespace CodeReviewServices
             if (discussions == null)
             {
                 // No Notes
-                return;
+                return null;
             }
 
             string discussionId = null;
@@ -164,7 +190,7 @@ namespace CodeReviewServices
                 {
                     string body = note["body"].ToString();
 
-                    if (body.Contains("### Branch Sanity Check - FAIL"))
+                    if (body.Contains(matchingCommentSnippet))
                     {
                         discussionId = discussion["id"].ToString();
                         matchingNote = note;
@@ -173,23 +199,41 @@ namespace CodeReviewServices
                 }
             }
 
-
-
             if (matchingNote == null)
             {
                 // No note with the specified type found.
-                return;
+                return null;
             }
 
             var noteId = matchingNote["id"];
-            //var discussionId = matchingNote.discussion_id;
+
+            return new DiscussionDetail
+            {
+                DiscussionId = discussionId,
+                Note = matchingNote
+            };
+
+        }
+
+        //TODO: If it's been resolved already, skip it
+        public async Task DismissReview(string dismissalMessage, string mrID, string targetRepoPath)
+        {
+            DiscussionDetail discussion = await FindExistingDiscussion(mrID, targetRepoPath, "### Branch Sanity Check - FAIL");
+
+            // No discussion note to dismiss exiting...
+            if (discussion == null) { return; }
+
+            var matchingNote = discussion.Note;
+            var discussionId = discussion.DiscussionId;
+            var noteId = matchingNote["id"];
+
 
             var updateNoteBody = new
             {
                 body = $"{matchingNote["body"].ToString()}\n\n[{dismissalMessage}]"
             };
 
-            // 1. Add a Resolve Note
+            // 1. Add a Resolve Note instead of having a two step process
             // TODO: Consolidate -- &body={System.Web.HttpUtility.UrlEncode(dismissalMessage)
             string updateNoteUrl = $"{_gitlabBaseURL}/{Uri.EscapeDataString(targetRepoPath)}/merge_requests/{mrID}/notes/{noteId}";
             var jsonContent = JsonConvert.SerializeObject(updateNoteBody);

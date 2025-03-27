@@ -131,12 +131,20 @@ namespace GitLabWebhook.Controllers
         }
 
 
-            [HttpPost("postTargetBranchSanityCheck")]
+        [HttpPost("postTargetBranchSanityCheck")]
         public async Task<IActionResult> PostTargetBranchSanityCheck(string url)
         {
 
+            //TODO: Validate URL
+
             // 1. Get Target Branch from MR (could be primary, or could be release branch, based on strategy)
             MRDetails mrDetails = await _gitLabService.GetMergeRequestDetailsFromUrl(url);
+
+            if(mrDetails == null || mrDetails.JIRA == null)
+            {
+                return Ok("No JIRA ticket or MR details. Expecting JIRA#PROJ-123; in title");
+            }
+
 
             // 2. Get Target Release from JIRA
             var jiraTargetRelease = await _jiraService.GetReleaseTarget(mrDetails.JIRA);
@@ -145,7 +153,16 @@ namespace GitLabWebhook.Controllers
             var standardizedJiraReleaseTarget = StringParserService.ConvertJIRAToConfluence(jiraTargetRelease);
 
             // primary or primary-fy26-0403
-            var targetBranchFromConfluence = await _confluenceService.GetTargetBranch(standardizedJiraReleaseTarget);
+            string targetBranchFromConfluence = null;
+
+            try
+            {
+                targetBranchFromConfluence = await _confluenceService.GetTargetBranch(standardizedJiraReleaseTarget);
+            }
+            catch
+            {
+                  
+            }
 
             targetBranchFromConfluence = string.IsNullOrEmpty(targetBranchFromConfluence) ? "NONE!!!" : targetBranchFromConfluence;
 
@@ -160,8 +177,7 @@ namespace GitLabWebhook.Controllers
 
             if (mrTargetBranch != targetBranchFromConfluence)
             {
-                // TODO pass in URL 
-
+              
                 string tableBadResponse =
                       $@" ### Branch Sanity Check - FAIL 
 [[Retrigger Check]({_hostURL}/api/GitLabWebhook/GetTargetBranchSanityCheckGitLabHack?url={HttpUtility.UrlEncode(url)})]
@@ -172,9 +188,16 @@ namespace GitLabWebhook.Controllers
 |  **JIRA->Confluence Branch** | {targetBranchFromConfluence}|
 |  **MR Target Branch**           | {mrDetails.TargetBranch} |
 
-:no_entry: Please confirm the correct target branch in your MR [FT4 - Application Lifecycle Management (ALM) Strategy](https://confluence.dell.com/display/DSA/FT4+-+Application+Lifecycle+Management+%28ALM%29+Strategy) ";
+:no_entry: Please confirm the correct target branch in your MR or Confluence [FT4 - Application Lifecycle Management (ALM) Strategy](https://confluence.dell.com/display/DSA/FT4+-+Application+Lifecycle+Management+%28ALM%29+Strategy) ";
 
-               
+
+                DiscussionDetail discussion = await _gitLabService.FindExistingDiscussion(mrDetails.MRId, mrDetails.TargetRepoPath, "### Branch Sanity Check - FAIL");
+                if (discussion != null)
+                {
+                    // Don't duplicate the comment.
+                    return Ok("Bad review comment already exists, not adding duplicate.");
+                }
+
                 await _gitLabService.PostCommentToMR(tableBadResponse, mrDetails.MRId, mrDetails.TargetRepoPath, true, GitLabService.COMMENT_TYPE_DISCUSSION_NOTE);
 
                 return Ok(tableBadResponse);
@@ -196,7 +219,18 @@ namespace GitLabWebhook.Controllers
 :white_check_mark: JIRA Target -> Confluence Table -> Merge Request Target ";
 
 
-            await _gitLabService.DismissReview("Branches look good, this comment has been dismissed.", mrDetails.MRId, mrDetails.TargetRepoPath, GitLabService.COMMENT_TYPE_DISCUSSION_NOTE);
+
+            // If good note exists, don't repost it
+            var matchingNote = await _gitLabService.FindExistingNote(mrDetails.MRId, mrDetails.TargetRepoPath, "### Branch Sanity Check - PASS");
+
+            if (matchingNote != null)
+            {
+                // Don't duplicate the comment.
+                return Ok("Good review comment already exists, not adding duplicate.");
+            }
+
+            // If bad review exists.. Dismiss it
+            await _gitLabService.DismissReview("Branches look good, this comment has been dismissed.", mrDetails.MRId, mrDetails.TargetRepoPath);
 
             await _gitLabService.PostCommentToMR(tableGoodResponse, mrDetails.MRId, mrDetails.TargetRepoPath);
 
@@ -236,12 +270,12 @@ namespace GitLabWebhook.Controllers
 
             var jiraTargetBranch = await _jiraService.GetReleaseTarget(mrDetails.JIRA);
             
-            // TODO Create Service to Compare validity
+            
             var jsonData = JsonConvert.SerializeObject(mrDetails.fileDiffs);
 
             var feedback = await _openAiService.ReviewCodeAsync(jsonData);
 
-            //TODO Start aggregating feedback from multiple sources
+            //TODO Start aggregating feedback from multiple sources like other feedback reviews..etc
             return Ok("JIRA Target Branch: {jiraTargetBranch}\n MR Target Branch: {mrDetails.TargetBranch}\n {feedback}"); // Return MR details as a response
         }
 
@@ -315,12 +349,7 @@ namespace GitLabWebhook.Controllers
             string baseSha = diffRefs["base_sha"]?.ToString();
             string headSha = diffRefs["head_sha"]?.ToString();
             string startSha = diffRefs["start_sha"]?.ToString();
-            var changes = jsonResponse["changes"];
-
-            // Iterate through each change in the changes array
-            // foreach (var change in changes)
-
-            // TODO: Construction FileDiff object 
+            var changes = jsonResponse["changes"]; 
 
             var change = changes[0]; // just take first change for now
 
@@ -345,9 +374,6 @@ namespace GitLabWebhook.Controllers
 
             };
 
-            // TODO: Pass object to OpenAIService to recommend changes and to which line
-
-            // if fileDiff.HasSuggestion
 
             // Post the feedback as inline comments to GitLab
             await _gitLabService.PostReviewFeedbackOnSpecificLine(
