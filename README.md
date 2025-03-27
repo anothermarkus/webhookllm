@@ -24,7 +24,8 @@ Checks branches against JIRA/Confluence and the MR
 ![image](https://github.com/user-attachments/assets/1dce6770-f473-4824-ac8f-0115ec0a9456)
 
 New route that Posts updates to the MR along with autodismiss functionality when issue is resolved and called again.
-![image](https://github.com/user-attachments/assets/e058cc15-36fe-4d5a-b8ec-a0b1990972bb)
+![image](https://github.com/user-attachments/assets/864c37cd-20f7-4ba9-8ff3-e3ce466f4d24)
+
 
 
 
