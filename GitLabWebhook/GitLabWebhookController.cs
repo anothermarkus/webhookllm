@@ -6,6 +6,7 @@ using System.Security.Cryptography.Xml;
 using System.Text;
 using System.Threading.Channels;
 using System.Threading.Tasks;
+using System.Web;
 using CodeReviewServices;
 using GitLabWebhook.CodeReviewServices;
 using GitLabWebhook.models;
@@ -36,6 +37,7 @@ namespace GitLabWebhook.Controllers
         private readonly GitLabService _gitLabService;
         private readonly JiraService _jiraService;
         private readonly ConfluenceService _confluenceService;
+        private readonly string _hostURL;
 
         // Inject IConfiguration to access the app settings and initialize the HttpClient
         public GitLabWebhookController(IConfiguration configuration)
@@ -46,6 +48,7 @@ namespace GitLabWebhook.Controllers
             _gitLabService = new GitLabService(_configuration);
             _jiraService = new JiraService(_configuration);
             _confluenceService = new ConfluenceService(_configuration);
+            _hostURL = configuration["Host:HostURL"];
 
         }
 
@@ -119,7 +122,16 @@ namespace GitLabWebhook.Controllers
 
         }
 
-        [HttpPost("postTargetBranchSanityCheck")]
+        [HttpGet("GetTargetBranchSanityCheckGitLabHack")]
+        public async Task<IActionResult> GetTargetBranchSanityCheckGitLabHack(string url)
+        {
+            await PostTargetBranchSanityCheck(url);
+            return Content("<html><body><script>window.close();</script></body></html>", "text/html");
+
+        }
+
+
+            [HttpPost("postTargetBranchSanityCheck")]
         public async Task<IActionResult> PostTargetBranchSanityCheck(string url)
         {
 
@@ -148,9 +160,11 @@ namespace GitLabWebhook.Controllers
 
             if (mrTargetBranch != targetBranchFromConfluence)
             {
+                // TODO pass in URL 
 
                 string tableBadResponse =
-                      $@" ### Branch Sanity Check - FAIL
+                      $@" ### Branch Sanity Check - FAIL 
+[[Retrigger Check]({_hostURL}/api/GitLabWebhook/GetTargetBranchSanityCheckGitLabHack?url={HttpUtility.UrlEncode(url)})]
                         
 |         **System**              |       **Target**         |
 |---------------------------------|--------------------------|

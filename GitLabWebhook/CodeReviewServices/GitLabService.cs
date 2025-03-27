@@ -16,11 +16,12 @@ namespace CodeReviewServices
         private readonly string _gitlabBaseURL;
         private readonly HttpClient _httpClient;
         public static string COMMENT_TYPE_DISCUSSION_NOTE = "DiscussionNote";
+        
 
         public GitLabService(IConfiguration configuration)
         {
             _gitlabToken = Environment.GetEnvironmentVariable("GITLABTOKEN");
-            _gitlabBaseURL = configuration["GitLab:ApiBaseUrl"];
+            _gitlabBaseURL = configuration["GitLab:ApiBaseUrl"];           
             _httpClient = new HttpClient();
             _httpClient.DefaultRequestHeaders.Add("private-token", _gitlabToken);
         }
