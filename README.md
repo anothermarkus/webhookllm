@@ -37,9 +37,7 @@ Documents to reference for this project
 
 
 TODO
-- Guard against duplicate comments
 - Add Embeddings to OpenAI calls which should provide context / code standards
-- Future feature to query JIRA check the target branch of the ticket compare to the branch being committed into
 - Have the standards/criteria be flexible via dynamic configuration based on how the service is managing the MRs
 - Introspection into how much compute power and/or time is spent per suggestion
 - Parallelize suggestions across all files, or submit multiple files together, only review certain files: .ts, .cs  standards for each file
