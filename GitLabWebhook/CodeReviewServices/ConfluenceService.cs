@@ -90,20 +90,9 @@ namespace GitLabWebhook.CodeReviewServices
             }
 
 
-            throw new Exception("Target Release Not Found! {targetBranch}");
+            throw new Exception($"Target Release Not Found! {targetRelease}");
         }
         
-        //public static string ParseHtmlContent(string jsonResponse)
-        //{
-        //    // This method assumes you're using the standard Confluence API JSON response, which includes the 'body.storage' field
-        //    // This field contains the HTML content of the page.
-        //    var startIndex = jsonResponse.IndexOf("\"body\":") + 7;
-        //    var endIndex = jsonResponse.IndexOf("\"storage\":") + 11;
-        //    var htmlContent = jsonResponse.Substring(startIndex, endIndex - startIndex);
-
-        //    // Extract the HTML content of the page (assuming the table content is within the body storage field)
-        //    return htmlContent;
-        //}
 
     }
 }
