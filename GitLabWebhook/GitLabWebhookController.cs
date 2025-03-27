@@ -38,6 +38,7 @@ namespace GitLabWebhook.Controllers
         private readonly JiraService _jiraService;
         private readonly ConfluenceService _confluenceService;
         private readonly string _hostURL;
+        private readonly string _repoWhiteListContainsText;
 
         // Inject IConfiguration to access the app settings and initialize the HttpClient
         public GitLabWebhookController(IConfiguration configuration)
@@ -49,6 +50,7 @@ namespace GitLabWebhook.Controllers
             _jiraService = new JiraService(_configuration);
             _confluenceService = new ConfluenceService(_configuration);
             _hostURL = configuration["Host:HostURL"];
+            _repoWhiteListContainsText = configuration["Whitelist:Contains"];
 
         }
 
@@ -144,6 +146,15 @@ namespace GitLabWebhook.Controllers
             {
                 return Ok("No JIRA ticket or MR details. Expecting JIRA#PROJ-123; in title");
             }
+
+            // Limit this to only a few repositories to start with
+            if (!mrDetails.TargetRepoPath.Contains(_repoWhiteListContainsText))
+            {
+                return Ok($"Sorry, project {mrDetails.TargetRepoPath} is not on the allowed list.");
+            }
+
+
+             
 
 
             // 2. Get Target Release from JIRA
