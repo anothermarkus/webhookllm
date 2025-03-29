@@ -26,7 +26,7 @@ Checks branches against JIRA/Confluence and the MR
 New route that Posts updates to the MR along with autodismiss functionality when issue is resolved and called again.
 ![image](https://github.com/user-attachments/assets/864c37cd-20f7-4ba9-8ff3-e3ce466f4d24)
 
-
+Adding deny and allow list via configuration
 
 
 
