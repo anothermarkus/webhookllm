@@ -15,7 +15,10 @@
   "Host": {
     "HostURL": "https://markbot.r2.pcf.dell.com"
   },
-  "Whitelist": {
+  "Allowlist": {
     "Contains": "qto-quote-create/draft-quote"
+  },
+  "Disallowlist": {
+    "Contains": "DSA-Sales"
   }
 }

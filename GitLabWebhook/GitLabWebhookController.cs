@@ -38,7 +38,8 @@ namespace GitLabWebhook.Controllers
         private readonly JiraService _jiraService;
         private readonly ConfluenceService _confluenceService;
         private readonly string _hostURL;
-        private readonly string _repoWhiteListContainsText;
+        private readonly string _repoAllowListContainsText;
+        private readonly string _repoDisallowListContainsText;
 
         // Inject IConfiguration to access the app settings and initialize the HttpClient
         public GitLabWebhookController(IConfiguration configuration)
@@ -50,7 +51,10 @@ namespace GitLabWebhook.Controllers
             _jiraService = new JiraService(_configuration);
             _confluenceService = new ConfluenceService(_configuration);
             _hostURL = configuration["Host:HostURL"];
-            _repoWhiteListContainsText = configuration["Whitelist:Contains"];
+            _repoAllowListContainsText = configuration["Allowlist:Contains"];
+            _repoDisallowListContainsText = configuration["Disallowlist:Contains"];
+
+
 
         }
 
@@ -148,14 +152,15 @@ namespace GitLabWebhook.Controllers
             }
 
             // Limit this to only a few repositories to start with
-            if (!mrDetails.TargetRepoPath.Contains(_repoWhiteListContainsText))
+            if (!mrDetails.TargetRepoPath.Contains(_repoAllowListContainsText))
             {
                 return Ok($"Sorry, project {mrDetails.TargetRepoPath} is not on the allowed list.");
             }
 
-
-             
-
+            if (mrDetails.TargetRepoPath.Contains(_repoDisallowListContainsText))
+            {
+                return Ok($"Sorry, project {mrDetails.TargetRepoPath} is explicitly disallowed as it doesn't follow the standard release strategy.");
+            }
 
             // 2. Get Target Release from JIRA
             var jiraTargetRelease = await _jiraService.GetReleaseTarget(mrDetails.JIRA);
@@ -178,8 +183,6 @@ namespace GitLabWebhook.Controllers
             targetBranchFromConfluence = string.IsNullOrEmpty(targetBranchFromConfluence) ? "NONE!!!" : targetBranchFromConfluence;
 
             var mrTargetBranch = mrDetails.TargetBranch;
-
-
 
            // Posting image to gitlab
            // curl--request POST --form "file=@/path_to_your_image.png" "https://gitlab.example.com/api/v4/projects/:id/uploads" - H "PRIVATE-TOKEN: your_access_token"
@@ -245,11 +248,7 @@ namespace GitLabWebhook.Controllers
 
             await _gitLabService.PostCommentToMR(tableGoodResponse, mrDetails.MRId, mrDetails.TargetRepoPath);
 
-            return Ok(tableGoodResponse);
-
-
-                
-            
+            return Ok(tableGoodResponse);            
         }
 
 
