@@ -1,0 +1,35 @@
+name: CI Pipeline
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    # No branches specified here, so it will trigger for pull requests targeting any branch
+    types:
+      - opened
+      - synchronize
+      - reopened
+
+jobs:
+  build:
+    runs-on: ubuntu-latest  
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v2
+
+    - name: Set up .NET
+      uses: actions/setup-dotnet@v2
+      with:
+        dotnet-version: '9.0'  
+
+    - name: Restore dependencies
+      run: dotnet restore  
+
+    - name: Build project
+      run: dotnet build --configuration Release  # Build the project in Release configuration
+
+    # Run unit tests
+    - name: Run unit tests
+      run: dotnet test --configuration Release  # Run unit tests in Release configuration
