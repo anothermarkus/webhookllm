@@ -5,8 +5,11 @@ on:
     branches:
       - main
   pull_request:
-    branches:
-      - main
+    # No branches specified here, so it will trigger for pull requests targeting any branch
+    types:
+      - opened
+      - synchronize
+      - reopened
 
 jobs:
   build:
