@@ -5,6 +5,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.AspNetCore.Mvc;
 using System.IO;
 using Xunit;
+using Microsoft.AspNetCore.Hosting;
 
 namespace GitLabWebhook.Tests
 {
@@ -25,7 +26,7 @@ namespace GitLabWebhook.Tests
             var serviceProvider = new ServiceCollection()
             .AddSingleton(configuration) // Add the configuration
             .AddHttpClient() // Register IHttpClientFactory
-            .RegisterIocConfigurations(null, configuration) // Register services using the centralized IOC configuration
+            .RegisterIocConfigurations(null!, configuration) // Register services using the centralized IOC configuration
             .BuildServiceProvider();
 
 
