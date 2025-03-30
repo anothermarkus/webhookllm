@@ -1,7 +1,10 @@
 using Newtonsoft.Json.Linq;
 using GitLabWebhook.Controllers;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.AspNetCore.Mvc;
+using System.IO;
+using Xunit;
 
 namespace GitLabWebhook.Tests
 {
@@ -19,7 +22,17 @@ namespace GitLabWebhook.Tests
 
               var configuration = configurationBuilder.Build();
 
-            _controller = new GitLabWebhookController(configuration);
+            var serviceProvider = new ServiceCollection()
+            .AddSingleton(configuration) // Add the configuration
+            .AddHttpClient() // Register IHttpClientFactory
+            .RegisterIocConfigurations(null, configuration) // Register services using the centralized IOC configuration
+            .BuildServiceProvider();
+
+
+
+
+            //_controller = new GitLabWebhookController(configuration);
+            _controller = serviceProvider.GetRequiredService<GitLabWebhookController>();
         }
 
         [Fact(Skip = "Skipping this as it is an integration test")]

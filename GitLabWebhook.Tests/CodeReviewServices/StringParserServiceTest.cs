@@ -1,40 +1,56 @@
-﻿using Castle.Core.Configuration;
-using CodeReviewServices;
-using GitLabWebhook.CodeReviewServices;
-using Microsoft.Extensions.Configuration;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using CodeReviewServices;
+using GitLabWebhook.CodeReviewServices;
+using Microsoft.Extensions.Configuration;
+using GitLabWebhook;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace GitLabWebhook.Tests.CodeReviewServices
 {
-   
-
     public class StringParserServiceTest
     {
-
         private readonly GitLabService _gitLabService;
 
         public StringParserServiceTest()
         {
             var configurationBuilder = new ConfigurationBuilder()
                 .SetBasePath(Directory.GetCurrentDirectory()) // Set the base path to the current directory (tests folder)
-               .AddJsonFile(Path.Combine(Directory.GetCurrentDirectory(), "config.json"), optional: false, reloadOnChange: true);
+                .AddJsonFile(
+                    Path.Combine(Directory.GetCurrentDirectory(), "config.json"),
+                    optional: false,
+                    reloadOnChange: true
+                );
 
-            var configuration = configurationBuilder.Build();
-            _gitLabService = new GitLabService(configuration);
+                var configuration = configurationBuilder.Build();
+
+                // Setup Dependency Injection container
+        var serviceProvider = new ServiceCollection()
+            .AddSingleton<IConfiguration>(configuration)  // Register configuration
+            .AddHttpClient()  // Register IHttpClientFactory
+            .AddSingleton<GitLabService>()  // Register GitLabService
+            .BuildServiceProvider();
+
+        // Resolve the service
+        _gitLabService = serviceProvider.GetRequiredService<GitLabService>();
+
+
         }
 
         [Theory]
-        [InlineData("https://gitlab.dell.com/seller/dsa/production/DSAPlatform/qto-quote-create/draft-quote/DSA-CartService/-/merge_requests/1375",
-            "seller/dsa/production/DSAPlatform/qto-quote-create/draft-quote/DSA-CartService")]
-        [InlineData("https://gitlab.dell.com/seller/dsa/production/DSAPlatform/qto-quote-create/draft-quote/DSA-CartService/merge_requests/1375",
-            "seller/dsa/production/DSAPlatform/qto-quote-create/draft-quote/DSA-CartService")]
+        [InlineData(
+            "https://gitlab.dell.com/seller/dsa/production/DSAPlatform/qto-quote-create/draft-quote/DSA-CartService/-/merge_requests/1375",
+            "seller/dsa/production/DSAPlatform/qto-quote-create/draft-quote/DSA-CartService"
+        )]
+        [InlineData(
+            "https://gitlab.dell.com/seller/dsa/production/DSAPlatform/qto-quote-create/draft-quote/DSA-CartService/merge_requests/1375",
+            "seller/dsa/production/DSAPlatform/qto-quote-create/draft-quote/DSA-CartService"
+        )]
         public void ShouldParseProjectName(String inputURL, String expectedResult)
         {
-
             //Arrange
             // All of the arranging was done in the Theory
 
@@ -46,10 +62,12 @@ namespace GitLabWebhook.Tests.CodeReviewServices
         }
 
         [Theory]
-        [InlineData("JIRA#QJ-7344; PROJECT :: FY26 :: My Funky Project :: Do the things :: ALL THE THINGS", "QJ-7344")]
+        [InlineData(
+            "JIRA#QJ-7344; PROJECT :: FY26 :: My Funky Project :: Do the things :: ALL THE THINGS",
+            "QJ-7344"
+        )]
         public void ShouldParseJIRATicket(String inputTitle, String expectedResult)
         {
-
             //Arrange
             // All of the arranging was done in the Theory
 
@@ -59,11 +77,5 @@ namespace GitLabWebhook.Tests.CodeReviewServices
             //Assert
             Assert.Equal(expectedResult, jiraTicket);
         }
-
     }
-
-   
 }
-
-
-
