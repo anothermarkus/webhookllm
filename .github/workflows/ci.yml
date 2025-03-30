@@ -11,6 +11,12 @@ on:
       - synchronize
       - reopened
 
+env:
+  CONFLUENCETOKEN: "NOT_REAL_TOKEN_VALUE"
+  GITLABTOKEN: "NOT_REAL_TOKEN_VALUE"
+  JIRATOKEN: "NOT_REAL_TOKEN_VALUE"
+  OPENAPITOKEN: "NOT_REAL_TOKEN_VALUE"
+
 jobs:
   build:
     runs-on: ubuntu-latest  
