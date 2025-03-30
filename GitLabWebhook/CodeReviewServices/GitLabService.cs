@@ -12,7 +12,7 @@ namespace GitLabWebhook.CodeReviewServices
     /// </summary>
     public class GitLabService
     {
-       // private readonly string _gitlabToken;
+        private readonly string _gitlabToken;
         private readonly string _gitlabBaseURL;
         private readonly HttpClient _httpClient;
 
@@ -28,8 +28,10 @@ namespace GitLabWebhook.CodeReviewServices
         /// <param name="httpClientFactory">An instance of IHttpClientFactory used to create an HttpClient.</param>
         public GitLabService(IConfiguration configuration, IHttpClientFactory httpClientFactory)
         {
+            _gitlabToken = Environment.GetEnvironmentVariable("GITLABTOKEN") ?? throw new ArgumentNullException("GITLABTOKEN needs to be set in the environment");
             _gitlabBaseURL = configuration["GitLab:ApiBaseUrl"] ?? throw new ArgumentNullException("GitLab:ApiToken");
             _httpClient = httpClientFactory.CreateClient();
+            _httpClient.DefaultRequestHeaders.Add("private-token", _gitlabToken);
         }
 
 
@@ -66,12 +68,12 @@ namespace GitLabWebhook.CodeReviewServices
                 JObject mrDetails = JObject.Parse(responseBody);
 
                 var source_branch = mrDetails["source_branch"];
-                var target_branch = mrDetails["target_branch"]?.ToString() ?? throw new Exception("Not able to find target branch from MR {apiUrl}");
+                var target_branch = mrDetails["target_branch"]?.ToString() ?? throw new Exception($"Not able to find target branch from MR {apiUrl}");
                 var diffRefs = mrDetails["diff_refs"];
                 var title = mrDetails["title"]?.ToString();
                 
                 if (diffRefs == null){
-                    throw new Exception("Not able to find diff refs from MR {apiUrl}");
+                    throw new Exception($"Not able to find diff refs from MR {apiUrl}");
                 }
 
                 string commit_sha = mrDetails["sha"]!.ToString();
@@ -82,7 +84,7 @@ namespace GitLabWebhook.CodeReviewServices
                 var changes = mrDetails["changes"];
 
                 if (changes == null){
-                    throw new Exception("Not able to changes from MR {apiUrl}");
+                    throw new Exception($"Not able to changes from MR {apiUrl}");
                 }
 
                 List<FileDiff> diffs = [];
@@ -127,7 +129,7 @@ namespace GitLabWebhook.CodeReviewServices
                
             }
 
-            throw new Exception("Not able to fetch changes from mr {apiUrl}");
+            throw new Exception($"Not able to fetch changes from mr {apiUrl}");
         }
 
         /// <summary>
