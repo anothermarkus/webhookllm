@@ -63,4 +63,6 @@ app.UseRouting(); // Enable routing.
 
 app.MapControllers(); // Map controller routes (for API or MVC controllers).
 
+app.MapGet("/", () => Results.Redirect("/swagger"));
+
 app.Run(); // Start the application.

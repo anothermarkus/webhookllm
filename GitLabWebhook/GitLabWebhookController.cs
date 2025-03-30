@@ -106,7 +106,7 @@ namespace GitLabWebhook.Controllers
             MRDetails mrDetails = await _gitLabService.GetMergeRequestDetailsFromUrl(url);
 
             if (mrDetails == null || mrDetails.JIRA == null){
-                return Ok("Not able to fetch MR details or JIRA ticket from {url}");
+                return Ok($"Not able to fetch MR details or JIRA ticket from {url}");
             }
             
             // 2. Get Target Release from JIRA
@@ -385,13 +385,13 @@ namespace GitLabWebhook.Controllers
             var diffRefs = jsonResponse["diff_refs"];
 
             if (diffRefs == null){
-                throw new Exception("Not able to extract diff_refs from MR {mrUrl}");
+                throw new Exception($"Not able to extract diff_refs from MR {mrUrl}");
             }
 
             string baseSha = diffRefs["base_sha"]!.ToString();
             string headSha = diffRefs["head_sha"]!.ToString();
             string startSha = diffRefs["start_sha"]!.ToString();
-            var changes = jsonResponse["changes"] ?? throw new Exception("Not able to extract changes from MR {mrUrl}");
+            var changes = jsonResponse["changes"] ?? throw new Exception($"Not able to extract changes from MR {mrUrl}");
 
             var change = changes[0]; // just take first change for now
 
