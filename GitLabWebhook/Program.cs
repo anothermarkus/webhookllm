@@ -3,6 +3,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.FileProviders;
+using GitLabWebhook;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -24,6 +25,10 @@ builder.Configuration.SetBasePath(Directory.GetCurrentDirectory())
 // builder.Services.AddLogging();
 // builder.Services.AddAuthentication(...);
 // builder.Services.AddAuthorization();
+
+
+builder.Services.RegisterIocConfigurations(builder.Environment, builder.Configuration);
+
 
 var app = builder.Build();
 

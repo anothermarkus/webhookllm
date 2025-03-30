@@ -1,32 +1,45 @@
-using System.Net.Http;
 using System.Text;
-using System.Threading.Tasks;
-using GitLabWebhook.CodeReviewServices;
 using GitLabWebhook.models;
 using Models;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 
-namespace CodeReviewServices
+namespace GitLabWebhook.CodeReviewServices
 {
-  
+
+    /// <summary>
+    /// Class responsible for providing GitLab API functionality.
+    /// </summary>
     public class GitLabService
     {
-        private readonly string _gitlabToken;
+       // private readonly string _gitlabToken;
         private readonly string _gitlabBaseURL;
         private readonly HttpClient _httpClient;
-        public static string COMMENT_TYPE_DISCUSSION_NOTE = "DiscussionNote";
-        
 
-        public GitLabService(IConfiguration configuration)
+        /// <summary>
+        /// The type of comment used for discussion notes in Gitlab.
+        /// </summary>
+        public const string COMMENT_TYPE_DISCUSSION_NOTE = "DiscussionNote";
+
+        /// <summary>
+        /// Constructor for the GitLabService class.
+        /// </summary>
+        /// <param name="configuration">An instance of IConfiguration used to retrieve GitLab API token and base URL.</param>
+        /// <param name="httpClientFactory">An instance of IHttpClientFactory used to create an HttpClient.</param>
+        public GitLabService(IConfiguration configuration, IHttpClientFactory httpClientFactory)
         {
-            _gitlabToken = Environment.GetEnvironmentVariable("GITLABTOKEN");
-            _gitlabBaseURL = configuration["GitLab:ApiBaseUrl"];           
-            _httpClient = new HttpClient();
-            _httpClient.DefaultRequestHeaders.Add("private-token", _gitlabToken);
+            _gitlabBaseURL = configuration["GitLab:ApiBaseUrl"] ?? throw new ArgumentNullException("GitLab:ApiToken");
+            _httpClient = httpClientFactory.CreateClient();
         }
 
 
+        /// <summary>
+        /// Retrieves the details of a specific merge request based on the provided URL.
+        /// </summary>
+        /// <param name="url">The URL of the merge request.</param>
+        /// <returns>A Task that represents the asynchronous operation. The task result contains the MRDetails object 
+        /// representing the details of the merge request.</returns>
+        /// <exception cref="System.Exception">Thrown if the merge request ID or the project path is null.</exception>
         public async Task<MRDetails> GetMergeRequestDetailsFromUrl(string url)
         {
             string mrId = StringParserService.GetMergeRequestIdFromUrl(url);
@@ -53,24 +66,32 @@ namespace CodeReviewServices
                 JObject mrDetails = JObject.Parse(responseBody);
 
                 var source_branch = mrDetails["source_branch"];
-                var target_branch = mrDetails["target_branch"]?.ToString();
+                var target_branch = mrDetails["target_branch"]?.ToString() ?? throw new Exception("Not able to find target branch from MR {apiUrl}");
                 var diffRefs = mrDetails["diff_refs"];
                 var title = mrDetails["title"]?.ToString();
+                
+                if (diffRefs == null){
+                    throw new Exception("Not able to find diff refs from MR {apiUrl}");
+                }
 
-                string commit_sha = mrDetails["sha"]?.ToString();
-                string baseSha = diffRefs["base_sha"]?.ToString();
-                string headSha = diffRefs["head_sha"]?.ToString();
-                string startSha = diffRefs["start_sha"]?.ToString();
+                string commit_sha = mrDetails["sha"]!.ToString();
+                string baseSha = diffRefs["base_sha"]!.ToString();
+                string headSha = diffRefs["head_sha"]!.ToString();
+                string startSha = diffRefs["start_sha"]!.ToString();
 
                 var changes = mrDetails["changes"];
 
-                List<FileDiff> diffs = new List<FileDiff>();
+                if (changes == null){
+                    throw new Exception("Not able to changes from MR {apiUrl}");
+                }
+
+                List<FileDiff> diffs = [];
 
                 foreach (var change in changes)
                 {
-                    string fileName = change["new_path"].ToString();
-                    string oldFileName = change["old_path"]?.ToString();
-                    string diff = change["diff"].ToString();
+                    string fileName = change["new_path"]!.ToString();
+                    //string oldFileName = change["old_path"]!.ToString();
+                    string diff = change["diff"]!.ToString();
 
                     var fileURL = $"{_gitlabBaseURL}/{Uri.EscapeDataString(projectPath)}/repository/files/{Uri.EscapeDataString(fileName)}/raw?ref={commit_sha}";
 
@@ -89,7 +110,7 @@ namespace CodeReviewServices
                             HasSuggestion = false,
                         };
                         diffs.Add(fileDiff);
-                    } catch (Exception) { /* Could be 404 MRs can have a deleted file */ }
+                    } catch (Exception) { /* Could be 404 MRs can have a deleted file, and that's normal! */ }
                 }
 
 
@@ -99,7 +120,7 @@ namespace CodeReviewServices
                     TargetRepoPath = projectPath,
                     fileDiffs = diffs,
                     Title = title,
-                    JIRA = StringParserService.GetJIRATicket(title),
+                    JIRA = StringParserService.GetJIRATicket(title?.ToString() ?? "No Title Found"),
                     TargetBranch = target_branch
                 };
 
@@ -109,16 +130,32 @@ namespace CodeReviewServices
             throw new Exception("Not able to fetch changes from mr {apiUrl}");
         }
 
- 
+        /// <summary>
+        /// Retrieves the files associated with a merge request.
+        /// </summary>
+        /// <param name="projectId">The ID of the project.</param>
+        /// <param name="mergeRequestURL">The URL of the merge request.</param>
+        /// <returns>A Task that represents the asynchronous operation. The task result contains the response from the server as a string.</returns>
+
         public async Task<string> GetMergeRequestFiles(string projectId, string mergeRequestURL)
         {
             var response = await _httpClient.GetStringAsync(mergeRequestURL);
             return response;
         }
 
-        // Post as comment to MR, rather than a specific line
-     
-        public async Task PostCommentToMR(string comment, string mrID, string targetRepoPath, bool isblocking = false, string commentType = null)
+
+        /// <summary>
+        /// Post as comment to MR, rather than a specific line
+        /// </summary>
+        /// <param name="comment">The comment to be posted.</param>
+        /// <param name="mrID">The ID of the merge request.</param>
+        /// <param name="targetRepoPath">The path of the target repository.</param>
+        /// <param name="isblocking">Indicates whether the comment is blocking.</param>
+        /// <param name="commentType">The type of the comment.</param>
+        /// <returns>A Task representing the asynchronous operation.</returns>
+        //
+        // Returns: Http Response
+        public async Task PostCommentToMR(string comment, string mrID, string targetRepoPath, bool isblocking = false, string? commentType = null)
         {
             var commentBody = new { body = comment,
                                     type = commentType };
@@ -138,7 +175,14 @@ namespace CodeReviewServices
             response.EnsureSuccessStatusCode();
         }
 
-        public async Task<JObject> FindExistingNote(string mrID, string targetRepoPath, string matchingCommentSnippet)
+        /// <summary>
+        /// FindExistingNote is an asynchronous method that searches for an existing note in a GitLab merge request.
+        /// </summary>
+        /// <param name="mrID">The ID of the merge request.</param>
+        /// <param name="targetRepoPath">The path of the target repository.</param>
+        /// <param name="matchingCommentSnippet">The snippet of the comment to match.</param>
+        /// <returns>A Task that represents the asynchronous operation. The task result contains the matching note as a JObject, or null if no matching note is found.</returns>
+        public async Task<JObject?> FindExistingNote(string mrID, string targetRepoPath, string matchingCommentSnippet)
         {
             string url = $"{_gitlabBaseURL}/{Uri.EscapeDataString(targetRepoPath)}/merge_requests/{mrID}/notes";
 
@@ -147,11 +191,15 @@ namespace CodeReviewServices
 
             var content = await response.Content.ReadAsStringAsync();
             var notes = JsonConvert.DeserializeObject<List<dynamic>>(content);
-            JObject matchingNote = null;
+
+            if (notes == null)  {
+                return null; // No Notes.
+            }
+            JObject? matchingNote = null;
 
             foreach (JObject note in notes)
             {
-                string body = note["body"].ToString();
+                string body = note["body"]?.ToString() ?? String.Empty;
 
                 if (body.Contains(matchingCommentSnippet))
                 {
@@ -160,11 +208,19 @@ namespace CodeReviewServices
                 }
             }
 
-            return null;
+            return matchingNote;
         }
 
 
-        public async Task<DiscussionDetail> FindExistingDiscussion(string mrID, string targetRepoPath, string matchingCommentSnippet)
+
+        /// <summary>
+        /// Finds an existing discussion in a GitLab merge request based on a matching comment snippet.
+        /// </summary>
+        /// <param name="mrID">The ID of the merge request.</param>
+        /// <param name="targetRepoPath">The path of the target repository.</param>
+        /// <param name="matchingCommentSnippet">The snippet of the comment to match.</param>
+        /// <returns>A Task that represents the asynchronous operation. The task result contains the matching discussion as a DiscussionDetail object, or null if no matching discussion is found.</returns>/
+        public async Task<DiscussionDetail?> FindExistingDiscussion(string mrID, string targetRepoPath, string matchingCommentSnippet)
         {
             string url = $"{_gitlabBaseURL}/{Uri.EscapeDataString(targetRepoPath)}/merge_requests/{mrID}/discussions";
             var response = await _httpClient.GetAsync(url);
@@ -175,24 +231,28 @@ namespace CodeReviewServices
 
             if (discussions == null)
             {
-                // No Notes
+                // No Discussions
                 return null;
             }
 
-            string discussionId = null;
-            JObject matchingNote = null;
+            string? discussionId = null;
+            JObject? matchingNote = null;
 
             foreach (JObject discussion in discussions)
             {
-                JArray notes = (JArray)discussion["notes"];
+                JArray? notes = discussion["notes"] as JArray;
+
+                if (notes == null){
+                    continue;
+                }
 
                 foreach (JObject note in notes)
                 {
-                    string body = note["body"].ToString();
+                    string? body = note["body"]?.ToString();
 
-                    if (body.Contains(matchingCommentSnippet))
+                    if (body !=null && body.Contains(matchingCommentSnippet))
                     {
-                        discussionId = discussion["id"].ToString();
+                        discussionId = discussion["id"]?.ToString();
                         matchingNote = note;
                         break; // Exit the loop once a match is found
                     }
@@ -214,23 +274,26 @@ namespace CodeReviewServices
             };
 
         }
-
-        //TODO: If it's been resolved already, skip it
+        
+         /// <summary>Dismisss a review by updating the discussion note with the given dismissal message, mrID, and targetRepoPath.</summary> 
+         /// <param name="dismissalMessage">The message to be added to the discussion note.</param> <param name="mrID">The merge request ID.</param> 
+         /// <param name="targetRepoPath">The path of the target repository.</param>
+         /// <returns>A Task representing the asynchronous operation.</returns> 
         public async Task DismissReview(string dismissalMessage, string mrID, string targetRepoPath)
         {
-            DiscussionDetail discussion = await FindExistingDiscussion(mrID, targetRepoPath, "### Branch Sanity Check - FAIL");
+            DiscussionDetail? discussion = await FindExistingDiscussion(mrID, targetRepoPath, "### Branch Sanity Check - FAIL");
 
             // No discussion note to dismiss exiting...
             if (discussion == null) { return; }
 
-            var matchingNote = discussion.Note;
+            var matchingNote = discussion.Note ?? throw new Exception("No matching note found.");
             var discussionId = discussion.DiscussionId;
-            var noteId = matchingNote["id"];
+            var noteId = matchingNote["id"] ?? throw new Exception("No matching noteId found.");
 
 
             var updateNoteBody = new
             {
-                body = $"{matchingNote["body"].ToString()}\n\n[{dismissalMessage}]"
+                body = $"{matchingNote["body"]?.ToString()}\n\n[{dismissalMessage}]"
             };
 
             // 1. Add a Resolve Note instead of having a two step process
@@ -250,7 +313,18 @@ namespace CodeReviewServices
 
 
 
-        // Post on a specific line
+
+        /// <summary>Posts review feedback on a specific line in a merge request.</summary>
+        /// <param name="fileName">The file name.</param>
+        /// <param name="baseSha">The base SHA.</param>
+        /// <param name="startSha">The start SHA.</param>
+        /// <param name="headSha">The head SHA.</param>
+        /// <param name="lineNumber">The line number.</param>
+        /// <param name="comment">The comment.</param>
+        /// <param name="mrID">The merge request ID.</param>
+        /// <param name="targetRepoPath">The target repository path.</param>
+        /// <param name="gitLabApiToken">The GitLab API token.</param>
+        /// <returns>The HTTP response message.</returns>
         public async Task<HttpResponseMessage> PostReviewFeedbackOnSpecificLine(
             string fileName,
             string baseSha,

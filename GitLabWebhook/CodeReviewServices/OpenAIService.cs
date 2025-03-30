@@ -3,87 +3,91 @@ using Models;
 using OpenAI;
 using OpenAI.Chat;
 
+// Open API Documentation https://github.com/openai/openai-dotnet/tree/OpenAI_2.1.0
+// Documentation https://platform.openai.com/docs/api-reference/introduction
+// Cookbook code quality https://cookbook.openai.com/examples/third_party/code_quality_and_security_scan_with_github_actions
+
+//private readonly List<string> _reviewCriteria = new List<string>
+//{
+//    "You are an Enterprise Code Assistant ensuring the code follows best practices and I am providing you with a JSON array of file changes for a merge request (MR). " +
+//    "Each item in the array represents a file change in the MR.",
+
+//    "Review each file change thoroughly for these code standards:",
+
+//     // Code Style               
+//    "Ensure adherence to DRY (Don't Repeat Yourself) principle by avoiding code duplication and reusing code effectively.",
+//    "Maintain cyclomatic complexity under 10; break down complex methods into smaller, manageable ones.",
+//    "Avoid deep nesting; use early returns for cleaner logic flow.",
+//    "Use null-conditional operators (?.) and null-coalescing operators (??) for safe null value access.",
+//    "Implement guard clauses to handle null or invalid inputs early in methods.",
+
+//    // Memory Management
+//    "Always use 'using' statements for disposable objects to ensure automatic resource disposal.",
+//    "Minimize memory leaks by unsubscribing from events when no longer needed.",
+//    "Dispose of unmanaged resources properly and be mindful of large object retention in memory.",
+//    "Avoid unnecessary object creation; use weak references or caching where applicable.",
+
+//    // Error Handling
+//    "Use try-catch blocks to handle exceptions; catch specific exceptions, not generic ones.",
+//    "Always use 'finally' for cleanup operations to release resources.",
+//    "Avoid silent failures; log exceptions for troubleshooting and debugging.",
+//    "Throw custom exceptions only for business logic errors, not for regular control flow.",
+//    "Don't use exceptions for control flow; use conditional checks instead.",
+
+//    // Thread Handling & Async/Await
+//    "Use async/await for asynchronous programming; avoid manually managing threads.",
+//    "Use ConfigureAwait(false) to avoid deadlocks in non-UI thread operations.",
+//    "Avoid blocking async calls (e.g., don't use Result or Wait()).",
+//    "Ensure thread safety by using locks or thread-safe collections when accessing shared resources.",
+//    "Use CancellationToken for graceful cancellation of long-running async operations.",
+//    "Avoid using Thread.Sleep() in async code; prefer Task.Delay() for non-blocking waits.",
+
+//    "For each file change, please provide feedback in the following JSON format:",
+
+//    "- `FileName`: The name of the file being reviewed. This should be provided as is.",
+//    "- `LLMComment`: A comment or feedback about the file change. If no comment is necessary, leave it as an empty string. If you suggest a change or improvement, provide it here.",
+//    "- `LineForComment`: The line number where you are suggesting a change **within the context of the diff**. If there is no specific line to comment on, use 0.",
+
+//    "Ensure that the `LineForComment` refers to a specific line in the diff where you have feedback. If there is no suggestion, set `LineForComment` to 0.",
+
+//    "Please note: `string.IsNullOrWhiteSpace` is an extension method, so you do not need to manually check for null. It already handles null checks internally. Make sure not to suggest adding any additional null checks where `string.IsNullOrWhiteSpace` is used.",
+
+//    "The code should be self-documenting and should not require additional comments or clarification about its behavior.",
+
+//    "Please respond with a JSON array only. The structure should be [ `FileName`, `LLMComment`, `LineForComment` ]."
+//};
+
+// LLM is having trouble with line numbers...
+
+
+// gleaned from: https://cookbook.openai.com/examples/third_party/code_quality_and_security_scan_with_github_actions
+//private readonly List<string> _reviewCriteria = new List<string>
+//{
+//    "You are an Enterprise Code Assistant. Review each code snippet below for its adherence to the following categories",
+//    "1) Code Style & Formatting",
+//    "2) Security & Compliance",
+//    "3) Error Handling & Logging",
+//    "4) Readability & Maintainability",
+//    "5) Performance & Scalability",
+//    "6) Testing & Quality Assurance",
+//    "7) Documentation & Version Control",
+//    "8) Accessibility & Internationalization",
+//    "Create a table and assign a rating of 'extraordinary', 'acceptable', or 'poor' for each category. Return a markdown table titled 'Enterprise Standards' with rows for each category and columns for 'Category' and 'Rating'",
+//    "Here are the changed file contents to analyze:"
+//};
+
+
 namespace CodeReviewServices
 {
-    // Open API Documentation https://github.com/openai/openai-dotnet/tree/OpenAI_2.1.0
-    // Documentation https://platform.openai.com/docs/api-reference/introduction
-    // Cookbook code quality https://cookbook.openai.com/examples/third_party/code_quality_and_security_scan_with_github_actions
-
+    
+    /// <summary>Class level description for OpenAIService.</summary>   
     public class OpenAIService
     {
         private string _apiKey;
         private string _openAiBaseUrl; // Custom Base URL
         private readonly ChatClient _chatClient;
 
-        //private readonly List<string> _reviewCriteria = new List<string>
-        //{
-        //    "You are an Enterprise Code Assistant ensuring the code follows best practices and I am providing you with a JSON array of file changes for a merge request (MR). " +
-        //    "Each item in the array represents a file change in the MR.",
-
-        //    "Review each file change thoroughly for these code standards:",
-
-        //     // Code Style               
-        //    "Ensure adherence to DRY (Don't Repeat Yourself) principle by avoiding code duplication and reusing code effectively.",
-        //    "Maintain cyclomatic complexity under 10; break down complex methods into smaller, manageable ones.",
-        //    "Avoid deep nesting; use early returns for cleaner logic flow.",
-        //    "Use null-conditional operators (?.) and null-coalescing operators (??) for safe null value access.",
-        //    "Implement guard clauses to handle null or invalid inputs early in methods.",
-
-        //    // Memory Management
-        //    "Always use 'using' statements for disposable objects to ensure automatic resource disposal.",
-        //    "Minimize memory leaks by unsubscribing from events when no longer needed.",
-        //    "Dispose of unmanaged resources properly and be mindful of large object retention in memory.",
-        //    "Avoid unnecessary object creation; use weak references or caching where applicable.",
-
-        //    // Error Handling
-        //    "Use try-catch blocks to handle exceptions; catch specific exceptions, not generic ones.",
-        //    "Always use 'finally' for cleanup operations to release resources.",
-        //    "Avoid silent failures; log exceptions for troubleshooting and debugging.",
-        //    "Throw custom exceptions only for business logic errors, not for regular control flow.",
-        //    "Don't use exceptions for control flow; use conditional checks instead.",
-
-        //    // Thread Handling & Async/Await
-        //    "Use async/await for asynchronous programming; avoid manually managing threads.",
-        //    "Use ConfigureAwait(false) to avoid deadlocks in non-UI thread operations.",
-        //    "Avoid blocking async calls (e.g., don't use Result or Wait()).",
-        //    "Ensure thread safety by using locks or thread-safe collections when accessing shared resources.",
-        //    "Use CancellationToken for graceful cancellation of long-running async operations.",
-        //    "Avoid using Thread.Sleep() in async code; prefer Task.Delay() for non-blocking waits.",
-
-        //    "For each file change, please provide feedback in the following JSON format:",
-
-        //    "- `FileName`: The name of the file being reviewed. This should be provided as is.",
-        //    "- `LLMComment`: A comment or feedback about the file change. If no comment is necessary, leave it as an empty string. If you suggest a change or improvement, provide it here.",
-        //    "- `LineForComment`: The line number where you are suggesting a change **within the context of the diff**. If there is no specific line to comment on, use 0.",
-
-        //    "Ensure that the `LineForComment` refers to a specific line in the diff where you have feedback. If there is no suggestion, set `LineForComment` to 0.",
-
-        //    "Please note: `string.IsNullOrWhiteSpace` is an extension method, so you do not need to manually check for null. It already handles null checks internally. Make sure not to suggest adding any additional null checks where `string.IsNullOrWhiteSpace` is used.",
-
-        //    "The code should be self-documenting and should not require additional comments or clarification about its behavior.",
-
-        //    "Please respond with a JSON array only. The structure should be [ `FileName`, `LLMComment`, `LineForComment` ]."
-        //};
-
-        // LLM is having trouble with line numbers...
-
-
-        // gleaned from: https://cookbook.openai.com/examples/third_party/code_quality_and_security_scan_with_github_actions
-        //private readonly List<string> _reviewCriteria = new List<string>
-        //{
-        //    "You are an Enterprise Code Assistant. Review each code snippet below for its adherence to the following categories",
-        //    "1) Code Style & Formatting",
-        //    "2) Security & Compliance",
-        //    "3) Error Handling & Logging",
-        //    "4) Readability & Maintainability",
-        //    "5) Performance & Scalability",
-        //    "6) Testing & Quality Assurance",
-        //    "7) Documentation & Version Control",
-        //    "8) Accessibility & Internationalization",
-        //    "Create a table and assign a rating of 'extraordinary', 'acceptable', or 'poor' for each category. Return a markdown table titled 'Enterprise Standards' with rows for each category and columns for 'Category' and 'Rating'",
-        //    "Here are the changed file contents to analyze:"
-        //};
-
+      
         private readonly List<string> _reviewCriteria = new List<string>
             {
                 "You are an Enterprise Code Assistant ensuring the code follows best practices and I am providing you with a JSON array of file changes for a merge request (MR). " +
@@ -134,9 +138,20 @@ namespace CodeReviewServices
                 "Please return everything in MarkDown format along with an overall grade: Great, Satisfactory or Poor"
            };
 
+        /// <summary>
+        /// Initializes a new instance of the OpenAIService class.
+        ///
+        /// This constructor retrieves the OPENAPITOKEN from the environment and sets it as the _apiKey.
+        /// It also sets the _openAiBaseUrl to "https://genai-api-dev.dell.com/v1/" which is the Open API
+        /// 2.3.0 - Equivalent to GPT-3.5.
+        ///
+        /// The function then creates a new ApiKeyCredential using the _apiKey.
+        /// After that, it creates a new OpenAIClientOptions with the specified _openAiBaseUrl.
+        /// Finally, it initializes a new ChatClient with the specified parameters.
+        /// </summary>
         public OpenAIService()
         {
-            _apiKey = Environment.GetEnvironmentVariable("OPENAPITOKEN");
+            _apiKey = Environment.GetEnvironmentVariable("OPENAPITOKEN") ?? throw new ArgumentNullException("OPENAPITOKEN needs to be set in the environment");
             _openAiBaseUrl = "https://genai-api-dev.dell.com/v1/"; //Open API 2.3.0 - Equivalent to GPT-3.5
 
             var apiKeyCredential = new ApiKeyCredential(_apiKey);
@@ -147,6 +162,11 @@ namespace CodeReviewServices
             _chatClient = new ChatClient("codellama-13b-instruct", apiKeyCredential, options);
         }
 
+        /// <summary>
+        /// Populates the suggestion for a given file.
+        /// </summary>
+        /// <param name="fileDiff">The file for which the suggestion needs to be populated.</param>
+        /// <returns>A Task that represents the asynchronous operation. The task result contains the updated FileDiff.</returns>
         public async Task<FileDiff> PopulateSuggestion(FileDiff fileDiff)
         {
             var reviewCriteria = new List<string>
@@ -169,6 +189,11 @@ namespace CodeReviewServices
             return fileDiff;
         }
 
+        /// <summary>
+        /// Asynchronously reviews the given code document based on the specified review criteria.
+        /// </summary>
+        /// <param name="codeDocument">The code document to review.</param>
+        /// <returns>A task that represents the completion of the asynchronous operation. The task result contains the review result as a string.</returns>
         public async Task<string> ReviewCodeAsync(string codeDocument)
         {
             var criteriaPrompt = string.Join("\n", _reviewCriteria);

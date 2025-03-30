@@ -5,6 +5,9 @@ using Newtonsoft.Json;
 
 namespace GitLabWebhook.CodeReviewServices
 {
+    /// <summary>
+    /// Class responsible for providing Confluence API functionality.
+    /// </summary>
     public class ConfluenceService
     {
         private readonly string _confluenceToken;
@@ -12,16 +15,27 @@ namespace GitLabWebhook.CodeReviewServices
         private readonly string _releasePageID;
         private readonly HttpClient _httpClient;
 
-        public ConfluenceService(IConfiguration configuration)
+        /// <summary>
+        /// Creates a new instance of the ConfluenceService.
+        /// </summary>
+        /// <param name="configuration">The configuration object used to initialize the service.</param>
+        /// <param name="httpClientFactory">The HTTP client factory object used to create a new HttpClient.</param>
+        public ConfluenceService(IConfiguration configuration, IHttpClientFactory httpClientFactory)
         {
-            _confluenceToken = Environment.GetEnvironmentVariable("CONFLUENCETOKEN");
-            _confluenceURL = configuration["Confluence:ApiBaseUrl"];
-            _releasePageID = configuration["Confluence:ReleaseBranchPageID"];
-            _httpClient = new HttpClient();
+            _confluenceToken = Environment.GetEnvironmentVariable("CONFLUENCETOKEN") ?? throw new ArgumentNullException("CONFLUENCETOKEN needs to be set in the environment");
+            _confluenceURL = configuration["Confluence:ApiBaseUrl"] ?? throw new ArgumentException("Confluence:ApiBaseUrl needs to be set in the configuration");
+            _releasePageID = configuration["Confluence:ReleaseBranchPageID"] ?? throw new ArgumentException("Confluence:ReleaseBranchPageID needs to be set in the configuration");
+            _httpClient = httpClientFactory.CreateClient();
             var byteArray = System.Text.Encoding.ASCII.GetBytes($":{_confluenceToken}");
             _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", _confluenceToken);
         }
 
+        /// <summary>
+        /// Retrieves the target branch corresponding to a specific release.
+        /// </summary>
+        /// <param name="targetRelease">The release for which to retrieve the target branch.</param>
+        /// <returns>The target branch as a string.</returns>
+        /// <exception cref="Exception">Thrown if the Confluence API is not reachable or the target release is not found.</exception>
         public async Task<String> GetTargetBranch(String targetRelease)
         {
             var url = $"{_confluenceURL}/rest/api/content/{_releasePageID}?expand=body.storage";
@@ -33,10 +47,11 @@ namespace GitLabWebhook.CodeReviewServices
                 throw new Exception("Not able to reach Confluence");
             }
 
-            string content
-                = await response.Content.ReadAsStringAsync();
-            dynamic jsonResponse = JsonConvert.DeserializeObject(content);
-            string htmlContent = jsonResponse.body.storage.value;         
+            string content = await response.Content.ReadAsStringAsync() ?? throw new Exception("Not able to read content from Confluence");
+
+            dynamic? jsonResponse = JsonConvert.DeserializeObject(content!) ?? throw new Exception("Not able to parse content from Confluence");
+            
+            string htmlContent = jsonResponse.body.storage.value;
 
             var doc = new HtmlDocument();
             doc.LoadHtml(htmlContent);
@@ -46,7 +61,7 @@ namespace GitLabWebhook.CodeReviewServices
             var tableRows = table.SelectNodes(".//tr");
 
             // Find the header row (assuming the first row is the header)
-            var headerRow = tableRows[1];  // Index 1 is the second row, which contains column names
+            var headerRow = tableRows[1];
             var headerCells = headerRow.SelectNodes("td");
 
             int releaseColumnIndex = -1;
@@ -92,7 +107,5 @@ namespace GitLabWebhook.CodeReviewServices
 
             throw new Exception($"Target Release Not Found! {targetRelease}");
         }
-        
-
     }
 }
