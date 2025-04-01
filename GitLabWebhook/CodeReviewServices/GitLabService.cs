@@ -166,11 +166,11 @@ namespace GitLabWebhook.CodeReviewServices
             var content = new StringContent(jsonContent, Encoding.UTF8, "application/json");
 
             string url =
-                $"{_gitlabBaseURL}/{Uri.EscapeDataString(targetRepoPath)}/merge_requests/{mrID}/notes";
+                $"{_gitlabBaseURL}/{Uri.EscapeDataString(targetRepoPath)}/merge_requests/{mrID}/notes?per_page=100&page=1";
 
             if (isblocking)
             {
-                url = $"{_gitlabBaseURL}/{Uri.EscapeDataString(targetRepoPath)}/merge_requests/{mrID}/discussions";
+                url = $"{_gitlabBaseURL}/{Uri.EscapeDataString(targetRepoPath)}/merge_requests/{mrID}/discussions?per_page=100&page=1";
             }
 
             var response = await _httpClient.PostAsync(url, content);
@@ -186,7 +186,7 @@ namespace GitLabWebhook.CodeReviewServices
         /// <returns>A Task that represents the asynchronous operation. The task result contains the matching note as a JObject, or null if no matching note is found.</returns>
         public async Task<JObject?> FindExistingNote(string mrID, string targetRepoPath, string matchingCommentSnippet)
         {
-            string url = $"{_gitlabBaseURL}/{Uri.EscapeDataString(targetRepoPath)}/merge_requests/{mrID}/notes";
+            string url = $"{_gitlabBaseURL}/{Uri.EscapeDataString(targetRepoPath)}/merge_requests/{mrID}/notes?per_page=100&page=1";
 
             var response = await _httpClient.GetAsync(url);
             response.EnsureSuccessStatusCode();
@@ -224,7 +224,7 @@ namespace GitLabWebhook.CodeReviewServices
         /// <returns>A Task that represents the asynchronous operation. The task result contains the matching discussion as a DiscussionDetail object, or null if no matching discussion is found.</returns>/
         public async Task<DiscussionDetail?> FindExistingDiscussion(string mrID, string targetRepoPath, string matchingCommentSnippet)
         {
-            string url = $"{_gitlabBaseURL}/{Uri.EscapeDataString(targetRepoPath)}/merge_requests/{mrID}/discussions";
+            string url = $"{_gitlabBaseURL}/{Uri.EscapeDataString(targetRepoPath)}/merge_requests/{mrID}/discussions?per_page=100&page=1"; // TODO traverse
             var response = await _httpClient.GetAsync(url);
             response.EnsureSuccessStatusCode();
 
@@ -341,7 +341,7 @@ namespace GitLabWebhook.CodeReviewServices
         {
             // Construct the URL for posting the inline comment (discussion)
             string postCommentUrl =
-                $"{_gitlabBaseURL}/{Uri.EscapeDataString(targetRepoPath)}/merge_requests/{mrID}/discussions";
+                $"{_gitlabBaseURL}/{Uri.EscapeDataString(targetRepoPath)}/merge_requests/{mrID}/discussions?per_page=100&page=1";
 
             // Construct the comment data (inline comment on a specific line)
             // https://docs.gitlab.com/api/discussions/
