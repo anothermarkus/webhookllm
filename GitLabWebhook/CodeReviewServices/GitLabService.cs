@@ -206,12 +206,11 @@ namespace GitLabWebhook.CodeReviewServices
                 return note != null ? note : null;
             }
 
-            return null;
+            return note;
         }
 
         private JObject? FindMatchingNote(string content, string matchingCommentSnippet)
         {
-           // var content = await response.Content.ReadAsStringAsync();
             var notes = JsonConvert.DeserializeObject<List<dynamic>>(content);
 
             if (notes == null)  {
@@ -243,63 +242,72 @@ namespace GitLabWebhook.CodeReviewServices
         /// <returns>A Task that represents the asynchronous operation. The task result contains the matching discussion as a DiscussionDetail object, or null if no matching discussion is found.</returns>/
         public async Task<DiscussionDetail?> FindExistingDiscussion(string mrID, string targetRepoPath, string matchingCommentSnippet)
         {
-            string url = $"{_gitlabBaseURL}/{Uri.EscapeDataString(targetRepoPath)}/merge_requests/{mrID}/discussions?per_page=100&page=1"; // TODO traverse
+            string url = $"{_gitlabBaseURL}/{Uri.EscapeDataString(targetRepoPath)}/merge_requests/{mrID}/discussions?per_page=100"; // TODO traverse discussions
             var response = await _httpClient.GetAsync(url);
             response.EnsureSuccessStatusCode();
 
-            var content = await response.Content.ReadAsStringAsync();
-            var discussions = JsonConvert.DeserializeObject<List<dynamic>>(content);
+            var totalPages = int.Parse(response.Headers.GetValues("X-Total-Pages").FirstOrDefault() ?? "1");
 
-            if (discussions == null)
+            foreach (var page in Enumerable.Range(1, totalPages))
             {
-                // No Discussions
-                return null;
-            }
+                url = $"{_gitlabBaseURL}/{Uri.EscapeDataString(targetRepoPath)}/merge_requests/{mrID}/discussions?per_page=100"; // TODO traverse discussions
+                response = await _httpClient.GetAsync(url);
+                response.EnsureSuccessStatusCode();
 
-            string? discussionId = null;
-            JObject? matchingNote = null;
+                var content = await response.Content.ReadAsStringAsync();
+                var discussions = JsonConvert.DeserializeObject<List<dynamic>>(content);
 
-            foreach (JObject discussion in discussions)
-            {
-                JArray? notes = discussion["notes"] as JArray;
+                if (discussions == null) return null;
 
-                if (notes == null){
-                    continue;
-                }
+                string? discussionId = null;
+                JObject? matchingNote = null;
 
-                foreach (JObject note in notes)
+                foreach (JObject discussion in discussions)
                 {
-                    string? body = note["body"]?.ToString();
+                    JArray? notes = discussion["notes"] as JArray;
 
-                    if (body !=null && body.Contains(matchingCommentSnippet))
+                    if (notes == null)
                     {
-                        discussionId = discussion["id"]?.ToString();
-                        matchingNote = note;
-                        break; // Exit the loop once a match is found
+                        continue;
+                    }
+
+                    foreach (JObject note in notes)
+                    {
+                        string? body = note["body"]?.ToString();
+
+                        if (body != null && body.Contains(matchingCommentSnippet))
+                        {
+                            discussionId = discussion["id"]?.ToString();
+                            matchingNote = note;
+                            break; // Exit the loop once a match is found
+                        }
                     }
                 }
+
+                if (matchingNote == null)
+                {
+                    // No note with the specified type found.
+                    return null;
+                }
+
+                var noteId = matchingNote["id"];
+
+                return new DiscussionDetail
+                {
+                    DiscussionId = discussionId,
+                    Note = matchingNote
+                };
+
             }
 
-            if (matchingNote == null)
-            {
-                // No note with the specified type found.
-                return null;
-            }
-
-            var noteId = matchingNote["id"];
-
-            return new DiscussionDetail
-            {
-                DiscussionId = discussionId,
-                Note = matchingNote
-            };
-
+            return null;
         }
-        
-         /// <summary>Dismisss a review by updating the discussion note with the given dismissal message, mrID, and targetRepoPath.</summary> 
-         /// <param name="dismissalMessage">The message to be added to the discussion note.</param> <param name="mrID">The merge request ID.</param> 
-         /// <param name="targetRepoPath">The path of the target repository.</param>
-         /// <returns>A Task representing the asynchronous operation.</returns> 
+
+
+        /// <summary>Dismisss a review by updating the discussion note with the given dismissal message, mrID, and targetRepoPath.</summary> 
+        /// <param name="dismissalMessage">The message to be added to the discussion note.</param> <param name="mrID">The merge request ID.</param> 
+        /// <param name="targetRepoPath">The path of the target repository.</param>
+        /// <returns>A Task representing the asynchronous operation.</returns> 
         public async Task DismissReview(string dismissalMessage, string mrID, string targetRepoPath)
         {
             DiscussionDetail? discussion = await FindExistingDiscussion(mrID, targetRepoPath, "### Branch Sanity Check - FAIL");
@@ -311,23 +319,9 @@ namespace GitLabWebhook.CodeReviewServices
             var discussionId = discussion.DiscussionId;
             var noteId = matchingNote["id"] ?? throw new Exception("No matching noteId found.");
 
-
-            var updateNoteBody = new
-            {
-                body = $"{matchingNote["body"]?.ToString()}\n\n[{dismissalMessage}]"
-            };
-
-            // 1. Add a Resolve Note instead of having a two step process
-            // TODO: Consolidate -- &body={System.Web.HttpUtility.UrlEncode(dismissalMessage)
-            string updateNoteUrl = $"{_gitlabBaseURL}/{Uri.EscapeDataString(targetRepoPath)}/merge_requests/{mrID}/notes/{noteId}";
-            var jsonContent = JsonConvert.SerializeObject(updateNoteBody);
-            var contentToUpdate = new StringContent(jsonContent, Encoding.UTF8, "application/json");
-
-            var updateResponse = await _httpClient.PutAsync(updateNoteUrl, contentToUpdate);
-            updateResponse.EnsureSuccessStatusCode();
-
-            // 2. Dismiss The Note
-            string resolveUrl = $"{_gitlabBaseURL}/{Uri.EscapeDataString(targetRepoPath)}/merge_requests/{mrID}/discussions/{discussionId}?resolved=true";
+            var body = $"{matchingNote["body"]?.ToString()}\n\n[{dismissalMessage}]";
+            
+            string resolveUrl = $"{_gitlabBaseURL}/{Uri.EscapeDataString(targetRepoPath)}/merge_requests/{mrID}/discussions/{discussionId}?resolved=true&body={System.Web.HttpUtility.UrlEncode(body)}";
             var resolveResponse = await _httpClient.PutAsync(resolveUrl, null);
             resolveResponse.EnsureSuccessStatusCode();
         }

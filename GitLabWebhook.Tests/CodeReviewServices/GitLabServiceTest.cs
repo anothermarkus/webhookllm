@@ -27,6 +27,7 @@ namespace GitLabWebhook.Tests
                 .Setup<Task<HttpResponseMessage>>("SendAsync", ItExpr.IsAny<HttpRequestMessage>(), 
                 ItExpr.IsAny<CancellationToken>())
                 .ReturnsAsync(new HttpResponseMessage { StatusCode = System.Net.HttpStatusCode.OK });
+                
 
             var mockHttpClient = new HttpClient(mockHttpMessageHandler.Object);
             var httpClientFactory = new Mock<IHttpClientFactory>();
@@ -78,7 +79,7 @@ namespace GitLabWebhook.Tests
              var httpResponseMessage = new HttpResponseMessage { StatusCode = System.Net.HttpStatusCode.OK };
              var httpResponseBody = "[{\"source_branch\":\"test-source-branch\",\"target_branch\":\"test-target-branch\",\"diff_refs\":{\"base_sha\":\"test-base-sha\",\"head_sha\":\"test-head-sha\",\"start_sha\":\"test-start-sha\"},\"title\":\"test-mr-title\",\"notes\":[{\"id\":\"1\",\"body\":\"### Branch Sanity Check - FAIL\"}],\"sha\":\"test-mr-sha\"}]";
              httpResponseMessage.Content = new StringContent(httpResponseBody, Encoding.UTF8, "application/json");
- 
+             httpResponseMessage.Headers.Add("X-Total-Pages", "1");
 
             mockHttpMessageHandler.Protected()
                 .Setup<Task<HttpResponseMessage>>("SendAsync", ItExpr.IsAny<HttpRequestMessage>(), 
@@ -157,7 +158,7 @@ namespace GitLabWebhook.Tests
              var httpResponseMessage = new HttpResponseMessage { StatusCode = System.Net.HttpStatusCode.OK };
              var httpResponseBody = "[{\"source_branch\":\"test-source-branch\",\"target_branch\":\"test-target-branch\",\"diff_refs\":{\"base_sha\":\"test-base-sha\",\"head_sha\":\"test-head-sha\",\"start_sha\":\"test-start-sha\"},\"title\":\"test-mr-title\",\"changes\":null,\"sha\":\"test-mr-sha\"}]";
              httpResponseMessage.Content = new StringContent(httpResponseBody, Encoding.UTF8, "application/json");
- 
+             httpResponseMessage.Headers.Add("X-Total-Pages", "1");
 
             mockHttpMessageHandler.Protected()
                 .Setup<Task<HttpResponseMessage>>("SendAsync", ItExpr.IsAny<HttpRequestMessage>(), 
