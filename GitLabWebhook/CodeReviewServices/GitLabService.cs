@@ -1,3 +1,4 @@
+using System.Net.Http.Headers;
 using System.Text;
 using GitLabWebhook.models;
 using Models;
@@ -166,14 +167,15 @@ namespace GitLabWebhook.CodeReviewServices
             var content = new StringContent(jsonContent, Encoding.UTF8, "application/json");
 
             string url =
-                $"{_gitlabBaseURL}/{Uri.EscapeDataString(targetRepoPath)}/merge_requests/{mrID}/notes?per_page=100&page=1";
+                $"{_gitlabBaseURL}/{Uri.EscapeDataString(targetRepoPath)}/merge_requests/{mrID}/notes";
 
             if (isblocking)
             {
-                url = $"{_gitlabBaseURL}/{Uri.EscapeDataString(targetRepoPath)}/merge_requests/{mrID}/discussions?per_page=100&page=1";
+                url = $"{_gitlabBaseURL}/{Uri.EscapeDataString(targetRepoPath)}/merge_requests/{mrID}/discussions";
             }
 
             var response = await _httpClient.PostAsync(url, content);
+
             response.EnsureSuccessStatusCode();
         }
 
@@ -186,12 +188,30 @@ namespace GitLabWebhook.CodeReviewServices
         /// <returns>A Task that represents the asynchronous operation. The task result contains the matching note as a JObject, or null if no matching note is found.</returns>
         public async Task<JObject?> FindExistingNote(string mrID, string targetRepoPath, string matchingCommentSnippet)
         {
-            string url = $"{_gitlabBaseURL}/{Uri.EscapeDataString(targetRepoPath)}/merge_requests/{mrID}/notes?per_page=100&page=1";
+            string url = $"{_gitlabBaseURL}/{Uri.EscapeDataString(targetRepoPath)}/merge_requests/{mrID}/notes?per_page=100";
 
             var response = await _httpClient.GetAsync(url);
-            response.EnsureSuccessStatusCode();
 
-            var content = await response.Content.ReadAsStringAsync();
+            var totalPages = int.Parse(response.Headers.GetValues("X-Total-Pages").FirstOrDefault() ?? "1");
+
+            JObject? note = null;
+
+            foreach (var page in Enumerable.Range(1, totalPages))
+            {
+                url = $"{_gitlabBaseURL}/{Uri.EscapeDataString(targetRepoPath)}/merge_requests/{mrID}/notes?per_page=100&page={page}";
+                response = await _httpClient.GetAsync(url);
+
+                note = FindMatchingNote(await response.Content.ReadAsStringAsync(), matchingCommentSnippet);
+
+                return note != null ? note : null;
+            }
+
+            return null;
+        }
+
+        private JObject? FindMatchingNote(string content, string matchingCommentSnippet)
+        {
+           // var content = await response.Content.ReadAsStringAsync();
             var notes = JsonConvert.DeserializeObject<List<dynamic>>(content);
 
             if (notes == null)  {
@@ -209,8 +229,7 @@ namespace GitLabWebhook.CodeReviewServices
                     return matchingNote;
                 }
             }
-
-            return matchingNote;
+            return null;
         }
 
 

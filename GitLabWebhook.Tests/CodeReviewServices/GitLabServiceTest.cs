@@ -111,7 +111,7 @@ namespace GitLabWebhook.Tests
              var httpResponseMessage = new HttpResponseMessage { StatusCode = System.Net.HttpStatusCode.OK };
              var httpResponseBody = "[{\"body\":\"### Branch Sanity Check - PASS\"}]";
              httpResponseMessage.Content = new StringContent(httpResponseBody, Encoding.UTF8, "application/json");
- 
+             httpResponseMessage.Headers.Add("X-Total-Pages", "1");
 
             mockHttpMessageHandler.Protected()
                 .Setup<Task<HttpResponseMessage>>("SendAsync", ItExpr.IsAny<HttpRequestMessage>(), 
