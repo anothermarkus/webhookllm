@@ -30,6 +30,8 @@ Adding deny and allow list via configuration
 
 Cleaned up 100+ warnings
 
+Refactoring and traversing gitlab paged responses via X-Total-Pages header
+
 ![image](https://github.com/user-attachments/assets/9b92c494-0966-400f-8247-2c721ec69a49)
 
 
