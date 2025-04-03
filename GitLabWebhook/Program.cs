@@ -57,6 +57,7 @@ app.UseStaticFiles(new StaticFileOptions
     RequestPath = "/images"
 });
 
+app.UseMiddleware<RequestResponseLoggingMiddleware>();
 
 app.UseHttpsRedirection(); // Redirect HTTP requests to HTTPS.
 app.UseRouting(); // Enable routing.
