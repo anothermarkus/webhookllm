@@ -2,6 +2,7 @@ using System.ClientModel;
 using Models;
 using OpenAI;
 using OpenAI.Chat;
+using OpenAI.Embeddings;
 
 // Open API Documentation https://github.com/openai/openai-dotnet/tree/OpenAI_2.1.0
 // Documentation https://platform.openai.com/docs/api-reference/introduction
@@ -216,5 +217,140 @@ namespace CodeReviewServices
 
             return response;
         }
+
+
+
+
+        /// <summary>
+        /// Asynchronously reviews the given code document based on the specified review criteria.
+        /// </summary>
+        /// <param name="code">The code document to review.</param>
+        /// <returns>A task that represents the completion of the asynchronous operation. The task result contains the review result as a string.</returns>
+        public async Task<string> ReviewCodeWithEmbeddingsAsync(string code)
+        {
+
+            // TODO Move embeddings bootstrapping to  IHostedService
+            //
+            // builder.Services.AddSingleton<PreloadingService>();
+            // builder.Services.AddHostedService(sp => sp.GetRequiredService<PreloadingService>());
+            // 
+            // Use it 
+            //   public SomeOtherService(PreloadingService preloadingService)
+            // {
+            //     _preloadingService = preloadingService;
+            // }   
+
+            //string newCodeSnippet = "double circleArea = 3.14 * radius * radius;";
+
+            var (relevantRules, relevantReviews) = await RetrieveRelevantContext(code);
+
+            string prompt = $"Review the following code:\n\n{code}\n\n"
+                    + $"Follow these rules:\n- {string.Join("\n- ", relevantRules)}\n\n"
+                    + $"Consider these past review comments:\n- {string.Join("\n- ", relevantReviews)}\n\n"
+                    + "Provide a detailed review.";
+
+
+
+            var messages = new List<ChatMessage> { new UserChatMessage(prompt) };
+
+            // Request completion from the OpenAI API
+            var chatCompletionOptions = new ChatCompletionOptions
+            {
+                Temperature = 0.7f,  // Set the temperature (controls randomness)
+            };
+
+            var result = await _chatClient.CompleteChatAsync(messages, chatCompletionOptions);
+
+            return string.Join(Environment.NewLine, result.Value.Content[0].Text.Split(new[] { '\r', '\n' }).Skip(2));
+
+        }
+
+     
+
+        private async Task<List<ReadOnlyMemory<float>>> GenerateEmbeddings(string[] texts)
+        {
+
+            // TODO Move embeddings bootstrapping to  IHostedService
+            var  _apiKey = Environment.GetEnvironmentVariable("OPENAPITOKEN") ?? throw new ArgumentNullException("OPENAPITOKEN needs to be set in the environment");
+            var _openAiBaseUrl = "https://genai-api-dev.dell.com/v1/"; //Open API 2.3.0 - Equivalent to GPT-3.5
+
+            var apiKeyCredential = new ApiKeyCredential(_apiKey);
+            var options = new OpenAIClientOptions
+            {
+                Endpoint = new Uri(_openAiBaseUrl), // Specify the hostname here
+            };
+
+            EmbeddingClient _embeddingClient = new EmbeddingClient("text-embedding-3-small", apiKeyCredential, options);
+
+            var embeddings = new List<ReadOnlyMemory<float>>();
+
+            foreach (var text in texts)
+            {
+                OpenAIEmbedding embedding = await _embeddingClient.GenerateEmbeddingAsync(text);
+                embeddings.Add(embedding.ToFloats());
+            }
+
+            return embeddings;
+        }
+
+        private List<string> GetTopMatches(ReadOnlyMemory<float> queryEmbedding, List<ReadOnlyMemory<float>> storedEmbeddings, string[] texts, int topK)
+        {
+            var scores = storedEmbeddings.Select((embedding, index) => new
+            {
+                Text = texts[index],
+                Score = CosineSimilarity(queryEmbedding.Span, embedding.Span)
+            })
+            .OrderByDescending(x => x.Score)
+            .Take(topK)
+            .Select(x => x.Text)
+            .ToList();
+
+            return scores;
+        }
+
+        private float CosineSimilarity(ReadOnlySpan<float> a, ReadOnlySpan<float> b)
+        {
+            float dotProduct = 0, normA = 0, normB = 0;
+
+            for (int i = 0; i < a.Length; i++)
+            {
+                dotProduct += a[i] * b[i];
+                normA += a[i] * a[i];
+                normB += b[i] * b[i];
+            }
+
+            return dotProduct / (float)(Math.Sqrt(normA) * Math.Sqrt(normB));
+        }
+
+
+        private async Task<(List<string> relevantRules, List<string> relevantReviews)> RetrieveRelevantContext(string newCodeSnippet)
+        {
+            // Define Code Review Rules
+            string[] codeReviewRules = {
+                    "Avoid using magic numbers.",
+                    "Ensure proper exception handling.",
+                    "Use meaningful variable names."
+                };
+
+            // Define Past Reviews
+            string[] pastReviews = {
+                    "Use a constant instead of '3.14' for Pi.",
+                    "Wrap file operations in a try-catch block.",
+                    "Rename 'x' to 'customerId' for clarity."
+                };
+
+            // Step 1: Generate Embeddings
+            var ruleEmbeddings = await GenerateEmbeddings(codeReviewRules);
+            var reviewEmbeddings = await GenerateEmbeddings(pastReviews);
+            var newCodeEmbedding = (await GenerateEmbeddings(new[] { newCodeSnippet })).First();
+
+            
+            // Step 2: Find most relevant rules and reviews using Cosine Similarity 
+            var relevantRules = GetTopMatches(newCodeEmbedding, ruleEmbeddings, codeReviewRules, 3);
+            var relevantReviews = GetTopMatches(newCodeEmbedding, reviewEmbeddings, pastReviews, 3);
+
+            return (relevantRules, relevantReviews);
+        }
+
     }
 }
