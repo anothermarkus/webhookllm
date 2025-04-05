@@ -1,5 +1,5 @@
 using System.ClientModel;
-using Models;
+using GitLabWebhook.models;
 using OpenAI;
 using OpenAI.Chat;
 using OpenAI.Embeddings;
@@ -87,6 +87,8 @@ namespace CodeReviewServices
         private string _apiKey;
         private string _openAiBaseUrl; // Custom Base URL
         private readonly ChatClient _chatClient;
+        private List<CodeSmellExampleEmbeddings> _storedCodeSmellExampleEmbeddings;
+        private List<CodeReviewCriteriaEmbeddings> _storedReviewCriteriaEmbeddings; 
 
       
         private readonly List<string> _reviewCriteria = new List<string>
@@ -161,6 +163,40 @@ namespace CodeReviewServices
                 Endpoint = new Uri(_openAiBaseUrl), // Specify the hostname here
             };
             _chatClient = new ChatClient("codellama-13b-instruct", apiKeyCredential, options);
+            
+
+             _storedReviewCriteriaEmbeddings = new List<CodeReviewCriteriaEmbeddings>();
+             _storedCodeSmellExampleEmbeddings = new List<CodeSmellExampleEmbeddings>();
+
+            // TODO Move embeddings bootstrapping to  IHostedService
+            //
+            // builder.Services.AddSingleton<PreloadingService>();
+            // builder.Services.AddHostedService(sp => sp.GetRequiredService<PreloadingService>());
+            // 
+            // Use it 
+            //   public SomeOtherService(PreloadingService preloadingService)
+            // {
+            //     _preloadingService = preloadingService;
+            // }   
+            // perhaps load these from config.json file
+
+             string[] codeReviewRules = {
+                     "Avoid using magic numbers.",
+                     "Ensure proper exception handling.",
+                     "Use meaningful variable names."
+                 };
+
+
+            foreach (string rule in codeReviewRules)
+            {
+                _storedReviewCriteriaEmbeddings.Add(new CodeReviewCriteriaEmbeddings
+                {
+                    Text = rule,
+                    Embedding = GetEmbeddingAsync(rule).Result
+                });
+            }
+
+
         }
 
         /// <summary>
@@ -226,21 +262,11 @@ namespace CodeReviewServices
         /// </summary>
         /// <param name="code">The code document to review.</param>
         /// <returns>A task that represents the completion of the asynchronous operation. The task result contains the review result as a string.</returns>
-        public async Task<string> ReviewCodeWithEmbeddingsAsync(string code)
+        public async Task<string> AnalyzeCodeSmellsAsync(string code)
         {
 
-            // TODO Move embeddings bootstrapping to  IHostedService
-            //
-            // builder.Services.AddSingleton<PreloadingService>();
-            // builder.Services.AddHostedService(sp => sp.GetRequiredService<PreloadingService>());
-            // 
-            // Use it 
-            //   public SomeOtherService(PreloadingService preloadingService)
-            // {
-            //     _preloadingService = preloadingService;
-            // }   
+           
 
-            //string newCodeSnippet = "double circleArea = 3.14 * radius * radius;";
 
             var (relevantRules, relevantReviews) = await RetrieveRelevantContext(code);
 
@@ -262,12 +288,10 @@ namespace CodeReviewServices
             var result = await _chatClient.CompleteChatAsync(messages, chatCompletionOptions);
 
             return string.Join(Environment.NewLine, result.Value.Content[0].Text.Split(new[] { '\r', '\n' }).Skip(2));
-
         }
+   
 
-     
-
-        private async Task<List<ReadOnlyMemory<float>>> GenerateEmbeddings(string[] texts)
+        private async Task<ReadOnlyMemory<float>> GetEmbeddingAsync(string text)
         {
 
             // TODO Move embeddings bootstrapping to  IHostedService
@@ -281,32 +305,11 @@ namespace CodeReviewServices
             };
 
             EmbeddingClient _embeddingClient = new EmbeddingClient("text-embedding-3-small", apiKeyCredential, options);
-
-            var embeddings = new List<ReadOnlyMemory<float>>();
-
-            foreach (var text in texts)
-            {
-                OpenAIEmbedding embedding = await _embeddingClient.GenerateEmbeddingAsync(text);
-                embeddings.Add(embedding.ToFloats());
-            }
-
-            return embeddings;
+            OpenAIEmbedding embedding = await _embeddingClient.GenerateEmbeddingAsync(text);
+ 
+            return embedding.ToFloats();
         }
 
-        private List<string> GetTopMatches(ReadOnlyMemory<float> queryEmbedding, List<ReadOnlyMemory<float>> storedEmbeddings, string[] texts, int topK)
-        {
-            var scores = storedEmbeddings.Select((embedding, index) => new
-            {
-                Text = texts[index],
-                Score = CosineSimilarity(queryEmbedding.Span, embedding.Span)
-            })
-            .OrderByDescending(x => x.Score)
-            .Take(topK)
-            .Select(x => x.Text)
-            .ToList();
-
-            return scores;
-        }
 
         private float CosineSimilarity(ReadOnlySpan<float> a, ReadOnlySpan<float> b)
         {
@@ -325,32 +328,63 @@ namespace CodeReviewServices
 
         private async Task<(List<string> relevantRules, List<string> relevantReviews)> RetrieveRelevantContext(string newCodeSnippet)
         {
-            // Define Code Review Rules
-            string[] codeReviewRules = {
-                    "Avoid using magic numbers.",
-                    "Ensure proper exception handling.",
-                    "Use meaningful variable names."
-                };
 
-            // Define Past Reviews
-            string[] pastReviews = {
-                    "Use a constant instead of '3.14' for Pi.",
-                    "Wrap file operations in a try-catch block.",
-                    "Rename 'x' to 'customerId' for clarity."
-                };
+            var newEmbedding = await GetEmbeddingAsync(newCodeSnippet);
 
-            // Step 1: Generate Embeddings
-            var ruleEmbeddings = await GenerateEmbeddings(codeReviewRules);
-            var reviewEmbeddings = await GenerateEmbeddings(pastReviews);
-            var newCodeEmbedding = (await GenerateEmbeddings(new[] { newCodeSnippet })).First();
+            var mostRelevantCodeSmellExamples = _storedCodeSmellExampleEmbeddings
+            .Select(e => new
+            {
+                e.Details,
+                e.CodeSmell,
+                Similarity = CosineSimilarity(e.Embedding.Span, newEmbedding.Span)
+            })
+            .OrderByDescending(x => x.Similarity)
+            .Take(3)
+            .ToList();
 
-            
-            // Step 2: Find most relevant rules and reviews using Cosine Similarity 
-            var relevantRules = GetTopMatches(newCodeEmbedding, ruleEmbeddings, codeReviewRules, 3);
-            var relevantReviews = GetTopMatches(newCodeEmbedding, reviewEmbeddings, pastReviews, 3);
+            var mostRelevantReviewCriteria = _storedReviewCriteriaEmbeddings
+            .Select(e => new
+            {
+                e.Text,
+                Similarity = CosineSimilarity(e.Embedding.Span, newEmbedding.Span)
+            })
+            .OrderByDescending(x => x.Similarity)
+            .Take(3)
+            .ToList();
+
+            var relevantReviews = mostRelevantCodeSmellExamples
+                .Select(x => $"{x.CodeSmell}: {x.Details}")
+                .ToList();
+
+            var relevantRules = mostRelevantReviewCriteria
+            .Select(x => x.Text)
+            .ToList();
 
             return (relevantRules, relevantReviews);
         }
 
+        /// <summary>
+        /// Stores a training example.
+        /// </summary>
+        /// <param name="details">The details of the training example.</param>
+        /// <param name="codeSmell">The code smell category.</param>
+        /// <returns>A task that represents the asynchronous operation.</returns>
+        public async Task StoreTrainingExampleAsync(MRDetails details, CodeSmellCategory codeSmell)
+        {
+            var embedding = await GetEmbeddingAsync(details.ToString());
+
+            //TODO Persist these to volume or database
+            _storedCodeSmellExampleEmbeddings.Add(new CodeSmellExampleEmbeddings
+            {
+                Details = details,
+                CodeSmell = codeSmell,
+                Embedding = embedding
+            });
+        }
+
+
+
+
     }
+
 }
