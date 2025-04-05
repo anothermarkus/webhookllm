@@ -1,6 +1,4 @@
-﻿using Models;
-
-namespace GitLabWebhook.models
+﻿namespace GitLabWebhook.models
 {
     /// <summary>
     /// Class to hold the details of a specific Merge Request
@@ -36,6 +34,20 @@ namespace GitLabWebhook.models
         /// The branch that the Merge Request is targeting
         /// </summary>
         public string TargetBranch { get; set; }  = string.Empty;
+
+        /// <summary>
+        /// The string representation of the object
+        /// </summary>
+        /// <returns></returns>
+        override public string ToString(){
+            
+            var retval = "";
+
+            foreach (var fileDiff in fileDiffs){
+                retval += $"FileDiff [FileDiff={fileDiff.Diff} FileContents={fileDiff.FileContents}]\n"; 
+            }
+            return retval;
+        }
 
     }
 }
