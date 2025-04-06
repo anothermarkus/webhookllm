@@ -435,42 +435,22 @@ namespace GitLabWebhook.Controllers
             );
         }
 
-
-        /// <summary>
-        /// Stores a training example for a specific Merge Request.
-        /// </summary>
-        /// <param name="mrURL">The URL of the Merge Request.</param>
-        /// <param name="codeSmell">The code smell category.</param>
-        /// <returns>A task that represents the asynchronous operation. The task result contains the HTTP response.</returns>
-        [HttpPost("train/{mrId}")]
-        public async Task<IActionResult> Train(string mrURL, [FromQuery] CodeSmellCategory codeSmell)
-        {
-
-            var mrDetails = await _gitLabService.GetMergeRequestDetailsFromUrl(mrURL);
-
-            await _openAiService.StoreTrainingExampleAsync(mrDetails, codeSmell);
-            return Ok("Training example stored.");
-        }
-
-        // Some Examples: Typescript
-        // https://gitlab.dell.com/seller/dsa/production/DSAPlatform/qto-quote-create/draft-quote/dsa-draft-quote-mfe/-/merge_requests/1757
-        // Code Smell: DoNotRepeatYourself 
-
-
         /// <summary>
         /// Analyzes the code smells in the specified Merge Request.
         /// </summary>
         /// <param name="mrURL">The URL of the Merge Request.</param>
         /// <returns>A task that represents the asynchronous operation. The task result contains the HTTP response.</returns>
-        [HttpPost("analyze/{mrId}")]
-        public async Task<IActionResult> Analyze(string mrURL)
+        [HttpPost("fewshotAnalysis")]
+        public async Task<IActionResult> FewShotAnalysis(string mrURL)
         {
-
+            // Chain of thought -> Review -> Reason -> Fix
             var mrDetails = await _gitLabService.GetMergeRequestDetailsFromUrl(mrURL);
-            var analysis = await _openAiService.AnalyzeCodeSmellsAsync(mrDetails?.fileDiffs?.ToString());
+            var codeContent = mrDetails.GetAllFileDiffsWithFullContent();
+            var analysis = await _openAiService.AnalyzeCodeSmellsUsingFewShotAsync(codeContent);
+
             return Ok(analysis);
         }
 
-
+  
     }
 }

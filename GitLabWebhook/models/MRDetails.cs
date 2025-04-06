@@ -39,15 +39,13 @@
         /// The string representation of the object
         /// </summary>
         /// <returns></returns>
-        override public string ToString(){
-            
-            var retval = "";
 
+        public string GetAllFileDiffsWithFullContent(){  
+            var retval = "";
             foreach (var fileDiff in fileDiffs){
-                retval += $"FileDiff [FileDiff={fileDiff.Diff} FileContents={fileDiff.FileContents}]\n"; 
+                retval += $"FileChanges [ {fileDiff.GetFileNameAndDiff()}]\n"; 
             }
             return retval;
         }
-
     }
 }
