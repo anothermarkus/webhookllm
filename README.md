@@ -10,27 +10,12 @@ Replace config.json with actual data and run
 set your OS env variables so this doesn't blow.
 
 
-![image](https://github.com/user-attachments/assets/5c8e8237-a9e2-40f6-b784-3dfe90b691e3)
+![image](https://github.com/user-attachments/assets/455d8892-cad4-4bf5-93ae-be170a4d1aff)
 
-Improved MR review, fed the entire filename into review, will consider summarizing at the MR level with Markup text for readability in GitLab.
-
-LLM is not deterministic, so it will give a different response for the same code review, depending on the run!
-
-
-![image](https://github.com/user-attachments/assets/d85d95cb-e65a-4f34-bc07-bb1c8b58941a)
 
 Checks branches against JIRA/Confluence and the MR
 
 ![image](https://github.com/user-attachments/assets/1dce6770-f473-4824-ac8f-0115ec0a9456)
-
-New route that Posts updates to the MR along with autodismiss functionality when issue is resolved and called again.
-![image](https://github.com/user-attachments/assets/864c37cd-20f7-4ba9-8ff3-e3ce466f4d24)
-
-Adding deny and allow list via configuration
-
-Cleaned up 100+ warnings
-
-Refactoring and traversing gitlab paged responses via X-Total-Pages header
 
 ![image](https://github.com/user-attachments/assets/9b92c494-0966-400f-8247-2c721ec69a49)
 
@@ -48,3 +33,4 @@ TODO
 - Introspection into how much compute power and/or time is spent per suggestion
 - Parallelize suggestions across all files, or submit multiple files together, only review certain files: .ts, .cs  standards for each file
 - Consideradding LangFuse to monitor performance
+- Move these TODOs to issues list
