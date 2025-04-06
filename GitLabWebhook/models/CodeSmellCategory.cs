@@ -183,9 +183,6 @@ namespace GitLabWebhook.models
 
             return "The following are common code smells and their definitions:\n\n" + string.Join("\n", lines);
         }
-
-
-
     }
 }
 

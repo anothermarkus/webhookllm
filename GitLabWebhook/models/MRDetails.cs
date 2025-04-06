@@ -1,6 +1,4 @@
-﻿using Models;
-
-namespace GitLabWebhook.models
+﻿namespace GitLabWebhook.models
 {
     /// <summary>
     /// Class to hold the details of a specific Merge Request
@@ -41,15 +39,13 @@ namespace GitLabWebhook.models
         /// The string representation of the object
         /// </summary>
         /// <returns></returns>
-        public string GetAllFileDiffsWithFullContent(){
-            
-            var retval = "";
 
+        public string GetAllFileDiffsWithFullContent(){  
+            var retval = "";
             foreach (var fileDiff in fileDiffs){
                 retval += $"FileChanges [ {fileDiff.GetFileNameAndDiff()}]\n"; 
             }
             return retval;
         }
-
     }
 }

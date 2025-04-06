@@ -1,7 +1,6 @@
 using System.Net.Http.Headers;
 using System.Text;
 using GitLabWebhook.models;
-using Models;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 
@@ -109,8 +108,7 @@ namespace GitLabWebhook.CodeReviewServices
                             BaseSha = baseSha,
                             HeadSha = headSha,
                             StartSha = startSha,
-                            Diff = diff,
-                            HasSuggestion = false,
+                            Diff = diff
                         };
                         diffs.Add(fileDiff);
                     } catch (Exception) { /* Could be 404 MRs can have a deleted file, and that's normal! */ }

@@ -3,6 +3,7 @@ using GitLabWebhook.models;
 using Models;
 using OpenAI;
 using OpenAI.Chat;
+using OpenAI.Embeddings;
 
 // Open API Documentation https://github.com/openai/openai-dotnet/tree/OpenAI_2.1.0
 // Documentation https://platform.openai.com/docs/api-reference/introduction
@@ -17,6 +18,8 @@ namespace CodeReviewServices
         private string _apiKey;
         private string _openAiBaseUrl; // Custom Base URL
         private readonly ChatClient _chatClient;
+        private List<CodeSmellExampleEmbeddings> _storedCodeSmellExampleEmbeddings;
+        private List<CodeReviewCriteriaEmbeddings> _storedReviewCriteriaEmbeddings; 
 
 
         /// <summary>
@@ -41,8 +44,6 @@ namespace CodeReviewServices
                 Endpoint = new Uri(_openAiBaseUrl), // Specify the hostname here
             };
             _chatClient = new ChatClient("codellama-13b-instruct", apiKeyCredential, options);
-
-
         }
 
         /// <summary>
@@ -101,6 +102,7 @@ namespace CodeReviewServices
         }
 
 
+
         /// <summary>
         /// Asynchronously reviews the given code document based on the specified review criteria.
         /// </summary>
@@ -121,20 +123,18 @@ namespace CodeReviewServices
 
             //TODO Add guiding examples (positive (smell found), negative (smell not found), multiple smells found)
 
+
             // Request completion from the OpenAI API
             var chatCompletionOptions = new ChatCompletionOptions
             {
                 Temperature = 0.1f,  // Set the temperature (controls randomness)
+                Temperature = 0.7f,  // Set the temperature (controls randomness)
             };
 
             var result = await _chatClient.CompleteChatAsync(messages, chatCompletionOptions);
 
             return result.Value.Content[0].Text;
         }
-
-
-
-
 
     }
 

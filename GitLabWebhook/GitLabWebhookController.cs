@@ -3,7 +3,6 @@ using CodeReviewServices;
 using GitLabWebhook.CodeReviewServices;
 using GitLabWebhook.models;
 using Microsoft.AspNetCore.Mvc;
-using Models;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 
@@ -436,7 +435,6 @@ namespace GitLabWebhook.Controllers
             );
         }
 
-
         /// <summary>
         /// Analyzes the code smells in the specified Merge Request.
         /// </summary>
@@ -447,16 +445,12 @@ namespace GitLabWebhook.Controllers
         {
             // Chain of thought -> Review -> Reason -> Fix
             var mrDetails = await _gitLabService.GetMergeRequestDetailsFromUrl(mrURL);
-
             var codeContent = mrDetails.GetAllFileDiffsWithFullContent();
-
             var analysis = await _openAiService.AnalyzeCodeSmellsUsingFewShotAsync(codeContent);
 
             return Ok(analysis);
         }
 
-        
-
-
+  
     }
 }
