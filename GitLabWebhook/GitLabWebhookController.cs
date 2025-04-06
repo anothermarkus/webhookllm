@@ -436,6 +436,27 @@ namespace GitLabWebhook.Controllers
             );
         }
 
-       
+
+        /// <summary>
+        /// Analyzes the code smells in the specified Merge Request.
+        /// </summary>
+        /// <param name="mrURL">The URL of the Merge Request.</param>
+        /// <returns>A task that represents the asynchronous operation. The task result contains the HTTP response.</returns>
+        [HttpPost("fewshotAnalysis")]
+        public async Task<IActionResult> FewShotAnalysis(string mrURL)
+        {
+            // Chain of thought -> Review -> Reason -> Fix
+            var mrDetails = await _gitLabService.GetMergeRequestDetailsFromUrl(mrURL);
+
+            var codeContent = mrDetails.GetAllFileDiffsWithFullContent();
+
+            var analysis = await _openAiService.AnalyzeCodeSmellsUsingFewShotAsync(codeContent);
+
+            return Ok(analysis);
+        }
+
+        
+
+
     }
 }

@@ -37,5 +37,19 @@ namespace GitLabWebhook.models
         /// </summary>
         public string TargetBranch { get; set; }  = string.Empty;
 
+        /// <summary>
+        /// The string representation of the object
+        /// </summary>
+        /// <returns></returns>
+        public string GetAllFileDiffsWithFullContent(){
+            
+            var retval = "";
+
+            foreach (var fileDiff in fileDiffs){
+                retval += $"FileChanges [ {fileDiff.GetFileNameAndDiff()}]\n"; 
+            }
+            return retval;
+        }
+
     }
 }

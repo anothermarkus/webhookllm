@@ -54,11 +54,9 @@ namespace Models
         /// Returns a string that represents the current object.
         /// </summary>
         /// <returns>A string that represents the current object.</returns>
-        public override string ToString()
+        public string GetFileNameAndDiff()
         {
-            return $"FileDiff [FileName={FileName}, BaseSha={BaseSha}, StartSha={StartSha}, " +
-                   $"HeadSha={HeadSha}, Diff={Diff?.Substring(0, Math.Min(50, Diff.Length))}..., " +
-                   $"LineForComment={LineForComment}, LLMComment={LLMComment}, HasSuggestion={HasSuggestion}]";
+            return $"[FileName={FileName},Diff={Diff}]";
         }
     }
 }
