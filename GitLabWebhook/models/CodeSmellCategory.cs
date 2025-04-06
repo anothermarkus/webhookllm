@@ -1,5 +1,5 @@
 
-namespace GitLabWebhook.models
+namespace GitLabWebhook.Models
 {
     public enum CodeSmellType
     {

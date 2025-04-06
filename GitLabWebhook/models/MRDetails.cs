@@ -1,4 +1,4 @@
-﻿namespace GitLabWebhook.models
+﻿namespace GitLabWebhook.Models
 {
     /// <summary>
     /// Class to hold the details of a specific Merge Request

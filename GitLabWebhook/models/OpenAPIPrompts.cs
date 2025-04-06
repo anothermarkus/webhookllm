@@ -1,4 +1,4 @@
-namespace GitLabWebhook.models
+namespace GitLabWebhook.Models
 {
     public static class OpenAPIPrompts
     {
