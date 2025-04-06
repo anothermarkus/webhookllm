@@ -1,6 +1,5 @@
 using System.ClientModel;
 using GitLabWebhook.models;
-using Models;
 using OpenAI;
 using OpenAI.Chat;
 using OpenAI.Embeddings;
@@ -128,7 +127,6 @@ namespace CodeReviewServices
             var chatCompletionOptions = new ChatCompletionOptions
             {
                 Temperature = 0.1f,  // Set the temperature (controls randomness)
-                Temperature = 0.7f,  // Set the temperature (controls randomness)
             };
 
             var result = await _chatClient.CompleteChatAsync(messages, chatCompletionOptions);
