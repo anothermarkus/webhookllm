@@ -1,6 +1,6 @@
 ﻿using Newtonsoft.Json.Linq;
 
-namespace GitLabWebhook.models
+namespace GitLabWebhook.Models
 {
     /// <summary>
     /// Represents a discussion in GitLab, which is a group of notes.

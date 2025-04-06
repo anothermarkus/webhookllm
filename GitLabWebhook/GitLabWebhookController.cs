@@ -1,10 +1,11 @@
 using System.Web;
 using CodeReviewServices;
 using GitLabWebhook.CodeReviewServices;
-using GitLabWebhook.models;
+using GitLabWebhook.Models;
 using Microsoft.AspNetCore.Mvc;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
+using GitLabWebhook.CodeReviewServices.Strategies;
 
 namespace GitLabWebhook.Controllers
 {
@@ -41,6 +42,8 @@ namespace GitLabWebhook.Controllers
         private readonly string _hostURL;
         private readonly string? _repoAllowListContainsText;
         private readonly string? _repoDisallowListContainsText;
+        private readonly IPromptGenerationStrategyFactory _strategyFactory;
+
 
 
         /// <summary>
@@ -48,7 +51,7 @@ namespace GitLabWebhook.Controllers
         /// </summary>
         /// <param name="configuration">The configuration.</param>
         /// <param name="httpClientFactory">The HTTP client factory.</param>
-        public GitLabWebhookController(IConfiguration configuration, IHttpClientFactory httpClientFactory)
+        public GitLabWebhookController(IConfiguration configuration, IHttpClientFactory httpClientFactory, IPromptGenerationStrategyFactory strategyFactory)
         {
             _httpClient = new HttpClient(); // Create a single instance of HttpClient
             _openAiService = new OpenAIService();
@@ -59,81 +62,9 @@ namespace GitLabWebhook.Controllers
             _gitlabBaseURL = configuration["GitLab:ApiBaseUrl"] ?? throw new ArgumentNullException("GitLab:ApiBaseUrl"); 
             _repoAllowListContainsText = configuration["Allowlist:Contains"];
             _repoDisallowListContainsText = configuration["Disallowlist:Contains"];
+            _strategyFactory = strategyFactory;
         }
 
-        /// <summary>
-        /// Get a sample feedback from the OpenAI service for code review
-        /// </summary>
-        /// <returns>Sample feedback from OpenAI for code review</returns>
-        [HttpGet("sampleopenaifeedback")]
-        public async Task<IActionResult> GetSampleFeedback()
-        {
-            var reviewCriteria = new List<string>
-            {
-                "Check for unused variables",
-                "Ensure all functions have docstrings",
-                "Check for code duplication",
-                "Ensure error handling is implemented",
-            };
-
-            var code =
-                @"// Sample code
-                 function foo() {
-                     let x = 1;
-                     console.log(x);
-                 }";
-
-            var openAIService = new OpenAIService();
-            var feedback = await openAIService.ReviewCodeAsync(code);
-
-            return Ok(feedback);
-        }
-
-        /// <summary>
-        /// Retrieves details of a specific merge request based on the MR ID (or string).
-        /// e.g. https://gitlab.dell.com/seller/dsa/production/DSAPlatform/qto-quote-create/draft-quote/DSA-CartService/merge_requests/1418
-        ///         
-        /// </summary>
-        /// <param name="url">The merge request URL (string) passed as part of the route.</param>
-        /// <returns>Sanity Check if target branch is valid for JIRA Ticket</returns>
-        [HttpGet("getTargetBranchSanityCheck")]
-        public async Task<IActionResult> GetTargetBranchSanityCheck(string url)
-        {
-
-            
-            // 1. Get Target Branch from MR (could be primary, or could be release branch, based on strategy)
-            MRDetails mrDetails = await _gitLabService.GetMergeRequestDetailsFromUrl(url);
-
-            if (mrDetails == null || mrDetails.JIRA == null){
-                return Ok($"Not able to fetch MR details or JIRA ticket from {url}");
-            }
-            
-            // 2. Get Target Release from JIRA
-            var jiraTargetRelease = await _jiraService.GetReleaseTarget(mrDetails.JIRA);
-
-            // fy26-0403
-            var standardizedJiraReleaseTarget = StringParserService.ConvertJIRAToConfluence(jiraTargetRelease);
-
-            // primary or primary-fy26-0403
-            var targetBranchFromConfluence = await _confluenceService.GetTargetBranch(standardizedJiraReleaseTarget);
-
-            targetBranchFromConfluence = string.IsNullOrEmpty(targetBranchFromConfluence) ? "NONE!!!" : targetBranchFromConfluence;
-
-            var mrTargetBranch = mrDetails.TargetBranch;
-
-            
-
-            if (mrTargetBranch != targetBranchFromConfluence)
-            {
-                return Ok($"You've been a naughty little MR {mrTargetBranch} does not match release: {jiraTargetRelease} target branch derived from confluence {targetBranchFromConfluence} " +
-                    $"https://confluence.dell.com/display/DSA/FT4+-+Application+Lifecycle+Management+%28ALM%29+Strategy");
-            }
-               
-
-            return Ok($"Target Branch from MR: {mrDetails.TargetBranch} vs Target Branch from Confluence: {targetBranchFromConfluence} " +
-                $"vs Release Target from JIRA {jiraTargetRelease}\n");
-
-        }
 
         /// <summary>
         /// Retrieves the sanity check for the target branch in GitLab.
@@ -149,7 +80,7 @@ namespace GitLabWebhook.Controllers
         }
 
         /// <summary>
-        /// Posts a sanity check for the target branch in GitLab.
+        /// This is a delegate off the main Webhook controller (another service, not this one) posts a sanity check for the target branch in GitLab.
         /// </summary>
         /// <param name="url">The URL of the merge request.</param>
         [HttpPost("postTargetBranchSanityCheck")]
@@ -265,72 +196,6 @@ namespace GitLabWebhook.Controllers
             return Ok(tableGoodResponse);            
         }
 
-
-        /// <summary>
-        /// Retrieves details of a specific merge request based on the MR ID (or string).
-        /// e.g. https://gitlab.dell.com/seller/dsa/production/DSAPlatform/qto-quote-create/draft-quote/DSA-CartService/merge_requests/1418
-        ///         
-        /// </summary>
-        /// <param name="url">The merge request URL (string) passed as part of the route.</param>
-        /// <returns>Details of the specified merge request NO update to the MR.</returns>
-        [HttpGet("getmrDetails")]
-        public async Task<IActionResult> GetMergeRequestDetails(string url)
-        {
-            MRDetails mrDetails = await _gitLabService.GetMergeRequestDetailsFromUrl(url);
-            return Ok(mrDetails); // Return MR details as a response
-        }
-
-        /// <summary>
-        /// Generates MR comments
-        /// e.g. https://gitlab.dell.com/seller/dsa/production/DSAPlatform/qto-quote-create/draft-quote/DSA-CartService/-/merge_requests/1375
-        ///         
-        /// </summary>
-        /// <param name="url">The merge request URL (string) passed as part of the route.</param>
-        /// <returns>LLM Generated Feedback on the MR itself</returns>
-        [HttpGet("openAILLMReview")]
-        public async Task<IActionResult> GetOpenAILLMReview(string url)
-        {
-            MRDetails mrDetails = await _gitLabService.GetMergeRequestDetailsFromUrl(url);
-
-            if (mrDetails == null || mrDetails.JIRA == null){
-                throw new Exception("Not able to fetch MRDetails or JIRA is null");
-            }
-
-            var jiraTargetBranch = await _jiraService.GetReleaseTarget(mrDetails.JIRA);
-            
-            
-            var jsonData = JsonConvert.SerializeObject(mrDetails.fileDiffs);
-
-            var feedback = await _openAiService.ReviewCodeAsync(jsonData);
-
-            //TODO Start aggregating feedback from multiple sources like other feedback reviews..etc
-            return Ok("JIRA Target Branch: {jiraTargetBranch}\n MR Target Branch: {mrDetails.TargetBranch}\n {feedback}"); // Return MR details as a response
-        }
-
-        /// <summary>
-        /// Adds a comment to the merge request (MR) using the OpenAI service.
-        /// </summary>
-        /// <param name="url">The URL of the merge request.</param>
-        /// <returns>A task that represents the asynchronous operation. The task result contains the feedback from the OpenAI service.</returns>
-        [HttpPost("addopenAILLMReviewComment")]
-        public async Task<IActionResult> PostOpenAILLMReviewComment(string url)
-        {
-            MRDetails mrDetails = await _gitLabService.GetMergeRequestDetailsFromUrl(url);
-
-            // Serialize the List<FileDiff> to JSON
-            var jsonData = JsonConvert.SerializeObject(mrDetails.fileDiffs);
-
-            var feedback = await _openAiService.ReviewCodeAsync(jsonData);
-
-           
-
-            await _gitLabService.PostCommentToMR(feedback, mrDetails.MRId, mrDetails.TargetRepoPath);
-
-            return Ok(feedback); // Return MR details as a response
-        }
-
-
-
         /// <summary>
         /// What Gitlab calls when MR Event happens
         /// </summary>
@@ -435,21 +300,24 @@ namespace GitLabWebhook.Controllers
             );
         }
 
-        /// <summary>
-        /// Analyzes the code smells in the specified Merge Request.
-        /// </summary>
-        /// <param name="mrURL">The URL of the Merge Request.</param>
-        /// <returns>A task that represents the asynchronous operation. The task result contains the HTTP response.</returns>
-        [HttpPost("fewshotAnalysis")]
-        public async Task<IActionResult> FewShotAnalysis(string mrURL)
+        [HttpPost("CodeReviewfeedback")]
+        public async Task<IActionResult> CodeReviewfeedback(string mrURL, StrategyType strategyType)
         {
-            // Chain of thought -> Review -> Reason -> Fix
             var mrDetails = await _gitLabService.GetMergeRequestDetailsFromUrl(mrURL);
-            var codeContent = mrDetails.GetAllFileDiffsWithFullContent();
-            var analysis = await _openAiService.AnalyzeCodeSmellsUsingFewShotAsync(codeContent);
+            var strategy = _strategyFactory.GetStrategy(strategyType);
+            if (strategy == null)
+            {
+                return BadRequest("Invalid strategy type.");
+            }
 
-            return Ok(analysis);
+            var codeContent = mrDetails.GetAllFileDiffsWithFullContent();
+            var promptMessages = strategy.GetMessagesForPrompt(codeContent);
+            var feedback = await _openAiService.GetFeedback(promptMessages);
+
+            return Ok(feedback);
         }
+
+
 
   
     }

@@ -1,6 +1,6 @@
 using Xunit;
 using System.Threading.Tasks;
-using GitLabWebhook.models;
+using GitLabWebhook.Models;
 using GitLabWebhook.CodeReviewServices;
 using Moq;
 using Microsoft.Extensions.Configuration;

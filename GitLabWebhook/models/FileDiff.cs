@@ -1,4 +1,4 @@
-namespace GitLabWebhook.models
+namespace GitLabWebhook.Models
 {
     /// <summary>
     /// Represents a file diff.

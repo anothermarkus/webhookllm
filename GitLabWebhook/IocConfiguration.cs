@@ -1,4 +1,6 @@
 
+using GitLabWebhook.CodeReviewServices.Strategies;
+
 namespace GitLabWebhook
 {
 
@@ -11,9 +13,17 @@ namespace GitLabWebhook
         {
         
             services.AddHttpClient();
+            services.AddScoped<IPromptGenerationStrategy, FewShotPromptGenerationStrategy>();
+            services.AddScoped<IPromptGenerationStrategy, ZeroShotPromptGenerationStrategy>();
+            // TODO implement and add other prompt generation strategies
+
+            // Registered services will automagically add to the cosntructor
+            services.AddScoped<IPromptGenerationStrategyFactory, PromptGenerationStrategyFactory>();
+            //servies.AddScoped<PromptGenerationStrategyFactory>();
+
+
         
-        // services.AddTransient<GitLabService>(services => new GitLabService(services.GetRequiredService<IConfiguration>(), services.GetRequiredService<IHttpClientFactory>()));
-        
+ 
             return services;
         }
         

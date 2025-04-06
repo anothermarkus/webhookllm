@@ -1,6 +1,6 @@
 using System.Net.Http.Headers;
 using System.Text;
-using GitLabWebhook.models;
+using GitLabWebhook.Models;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 

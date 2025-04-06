@@ -1,4 +1,4 @@
-namespace GitLabWebhook.models
+namespace GitLabWebhook.Models
 {
 
     public class CodeSmellExampleEmbeddings
