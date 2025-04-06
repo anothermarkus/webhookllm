@@ -22,9 +22,9 @@ Checks branches against JIRA/Confluence and the MR
 
 
 Documents to reference for this project
-    // Review API Patterns https://github.com/openai/openai-dotnet/tree/OpenAI_2.1.0
-    // Documentation https://platform.openai.com/docs/api-reference/introduction
-    // Cookbook code quality https://cookbook.openai.com/examples/third_party/code_quality_and_security_scan_with_github_actions
+- Review API Patterns https://github.com/openai/openai-dotnet/tree/OpenAI_2.1.0
+- Documentation https://platform.openai.com/docs/api-reference/introduction
+- Cookbook code quality https://cookbook.openai.com/examples/third_party/code_quality_and_security_scan_with_github_actions
 
 
 TODO
