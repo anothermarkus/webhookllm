@@ -56,7 +56,20 @@ namespace GitLabWebhook.Models
         /// <returns>A string that represents the current object.</returns>
         public string GetFileNameAndDiff()
         {
-            return $"[FileName={FileName},Diff={Diff}]";
+           // return $"[FileName={FileName},Diff={Diff}]";
+          
+            var lastSlashIndex = FileName.LastIndexOf('/');
+            string directory = lastSlashIndex >= 0 ? FileName.Substring(0, lastSlashIndex) : "";
+            string file = lastSlashIndex >= 0 ? FileName.Substring(lastSlashIndex + 1) : FileName;
+
+            
+            return
+                    $@"[Directory: {directory}]
+                    [FileName: {file}]
+                    <diff>
+                    ```diff
+                    {Diff}
+                    </diff>"; 
         }
     }
 }

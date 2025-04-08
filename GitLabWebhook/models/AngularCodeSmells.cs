@@ -1,7 +1,7 @@
 
 namespace GitLabWebhook.Models
 {
-    public enum CodeSmellType
+    public enum AngularCodeSmellType
     {
         LongMethod,
         GodClass,
@@ -21,9 +21,9 @@ namespace GitLabWebhook.Models
         SelectorDuplication
     }
 
-    public static class CodeSmells
+    public static class AngularCodeSmells
     {
-        public static readonly Dictionary<CodeSmellType, string> PrettyNames = new()
+        public static readonly Dictionary<AngularCodeSmellType, string> PrettyNames = new()
         {
             // { CodeSmellType.LongMethod, "Long Method" },
             // { CodeSmellType.GodClass, "God Class" },
@@ -40,7 +40,7 @@ namespace GitLabWebhook.Models
             // { CodeSmellType.MiddleMan, "Middle Man" },
             // { CodeSmellType.PrimitiveObsession, "Primitive Obsession" },
             // { CodeSmellType.CommentsSmell, "Comments Smell" },
-            { CodeSmellType.SelectorDuplication, "Selector Duplication" }
+            { AngularCodeSmellType.SelectorDuplication, "Selector Duplication" }
         };
 
         public static readonly Dictionary<string, string> Definitions = new()
@@ -156,7 +156,7 @@ namespace GitLabWebhook.Models
         };
 
 
-        public static string GetDefinition(CodeSmellType smellType)
+        public static string GetDefinition(AngularCodeSmellType smellType)
         {
             var prettyName = PrettyNames[smellType];
             return Definitions.TryGetValue(prettyName, out var definition)
@@ -164,7 +164,7 @@ namespace GitLabWebhook.Models
                 : "No definition available.";
         }
 
-        public static CodeSmellType? ParseFromString(string prettyName)
+        public static AngularCodeSmellType? ParseFromString(string prettyName)
         {
             return PrettyNames
                 .FirstOrDefault(kvp => kvp.Value.Equals(prettyName, StringComparison.OrdinalIgnoreCase)).Key;
