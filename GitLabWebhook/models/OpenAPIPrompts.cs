@@ -14,7 +14,7 @@ namespace GitLabWebhook.Models
             "Only use the code smells provided. Format your response like this: " +
             "Smell: [Name]   Explanation: [Short explanation]   Suggestion: [Improvement] " +
             "If there are no code smells, respond with: \"No code smells detected.\"" +
-            "Here are the code smells definitions: " + CodeSmells.ToPromptFriendlyString();
+            "Here are the code smells definitions: " + AngularCodeSmells.ToPromptFriendlyString();
 
              public static string FewShotCodeSmellSystemMessageDotNet =
             @"You are a code reviewer. Analyze the following DotNet code changes defined by Diff for any code smells based on the definitions below.\n " +
@@ -24,7 +24,7 @@ namespace GitLabWebhook.Models
             "Only use the code smells provided. Format your response like this: " +
             "Smell: [Name]   Explanation: [Short explanation]   Suggestion: [Improvement] " +
             "If there are no code smells, respond with: \"No code smells detected.\"" +
-            "Here are the code smells definitions: " + CodeSmells.ToPromptFriendlyString();
+            "Here are the code smells definitions: " + DotNetCodeSmells.ToPromptFriendlyString();
 
 
        // public static string FewShotCodeSmellAssistantMessage = $"Here are the code smells definitions: {CodeSmells.ToPromptFriendlyString()}";  

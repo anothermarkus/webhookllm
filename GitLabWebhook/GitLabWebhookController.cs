@@ -6,6 +6,9 @@ using Microsoft.AspNetCore.Mvc;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using GitLabWebhook.CodeReviewServices.Strategies;
+using System.Net.Http;
+using GitLabWebhook.CodeReviewServices.Decorators;
+using System.Text;
 
 namespace GitLabWebhook.Controllers
 {
@@ -300,21 +303,97 @@ namespace GitLabWebhook.Controllers
             );
         }
 
-        [HttpPost("CodeReviewfeedback")]
+
+        string GetDirectoryFromFileName(string fileName)
+        {
+            int lastSlash = fileName.LastIndexOf('/');
+            return lastSlash >= 0 ? fileName.Substring(0, lastSlash) : "";
+        }
+
+
+        public static int EstimateTokenCount(string text, double charsPerToken = 3.5)
+        {
+            return (int)Math.Ceiling((double)text.Length / charsPerToken);
+        }
+
+        [HttpGet("CodeReviewfeedback")]
         public async Task<IActionResult> CodeReviewfeedback(string mrURL, StrategyType strategyType)
         {
             var mrDetails = await _gitLabService.GetMergeRequestDetailsFromUrl(mrURL);
-            var strategy = _strategyFactory.GetStrategy(strategyType);
-            if (strategy == null)
+            var baseStrategy = _strategyFactory.GetStrategy(strategyType);
+            if (baseStrategy == null)
             {
                 return BadRequest("Invalid strategy type.");
             }
 
             var codeContent = mrDetails.GetAllFileDiffsWithFullContent();
-            var promptMessages = strategy.GetMessagesForPrompt(codeContent);
-            var feedback = await _openAiService.GetFeedback(promptMessages);
 
-            return Ok(feedback);
+            List<string> changedFiles = new List<string>();
+
+            mrDetails.fileDiffs.ForEach(fileDiff =>
+            {
+                changedFiles.Add(fileDiff.FileName);
+            });  
+
+          
+            // TODO refactor this, just testing out tokenization
+
+            var framework = FrameworkDetector.DetectFrameworkFromFiles(changedFiles);
+
+            var finalStrategy = baseStrategy; // For most types, it's going to be the same as baseStrategy
+
+            if (strategyType == StrategyType.FewShot){
+                finalStrategy  = framework switch
+                {
+                    CodeFramework.Angular => new AngularPromptDecorator(baseStrategy),
+                    CodeFramework.DotNet => new DotNetPromptDecorator(baseStrategy),
+                    _ => baseStrategy
+                };
+            }
+
+            var grouped = mrDetails.fileDiffs
+            .GroupBy(fd => GetDirectoryFromFileName(fd.FileName))
+            .ToList();
+            
+            var sbretval = new StringBuilder();
+            var sbBuffer = new StringBuilder();
+            int tokenBuffer = 0;
+            int maxTokens = 3000;
+
+            foreach (var group in grouped)
+            {
+                foreach (var fileDiff in group)
+                {
+                    string fileText = fileDiff.GetFileNameAndDiff();
+                    int tokens = EstimateTokenCount(fileText);
+
+                    if (tokenBuffer + tokens > maxTokens)
+                    {
+                        // Flush current buffer
+                        var promptMessages = finalStrategy.GetMessagesForPrompt(sbBuffer.ToString());
+                        sbretval.AppendLine(await _openAiService.GetFeedback(promptMessages));
+
+                        Console.WriteLine(sbretval.ToString());
+
+                        // Reset buffer
+                        sbBuffer.Clear();
+                        tokenBuffer = 0;
+                    }
+
+                    sbBuffer.AppendLine(fileText);
+                    tokenBuffer += tokens;
+                }
+            }
+
+            // Flush remaining buffer (if anything is left)
+            if (tokenBuffer > 0)
+            {
+                var promptMessages = finalStrategy.GetMessagesForPrompt(sbBuffer.ToString());
+                sbretval.AppendLine(await _openAiService.GetFeedback(promptMessages));
+                Console.WriteLine(sbretval.ToString());
+            }
+
+            return Ok(sbretval.ToString());
         }
 
 
