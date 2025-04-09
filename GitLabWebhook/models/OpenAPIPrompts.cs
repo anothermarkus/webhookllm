@@ -3,28 +3,25 @@ namespace GitLabWebhook.Models
     public static class OpenAPIPrompts
     {
 
-        public static string FewShotCodeSmellPromptUserInput = @"Here are the deltas of all the files that have changed in my Merge Request please review it for me: {{CODE_SNIPPET_HERE}}";
+        public static string FewShotCodeSmellPromptUserInput = @"Here are the deltas of all the files that have changed in my Merge Request please review it for me: {code}";
 
 
-        public static string FewShotCodeSmellSystemMessageAngular =
-            @"You are a code reviewer. Analyze the following Angular code changes defined by Diff for any code smells based on the definitions below.\n " +
-            "Instructions: " +
-            "1. Identify any code smells stricly from the list of definitions I will give you. " +
-            "2. For each one, include: - Smell name - Explanation (where/why it occurs) - Suggestion (how to improve) " +
-            "Only use the code smells provided. Format your response like this: " +
-            "Smell: [Name]   Explanation: [Short explanation]   Suggestion: [Improvement] " +
-            "If there are no code smells, respond with: \"No code smells detected.\"" +
-            "Here are the code smells definitions: " + AngularCodeSmells.ToPromptFriendlyString();
+        public static string GetPositiveFewShotCodeSmellSystemMessageAngular(string codeSmellDefinition){
+         return   @"You are a code reviewer. Analyze the following Angular code changes defined by Diff for a specific anti-pattern.\n " +
+            "Instructions: If it looks like an anti-pattern, please output the following:" +
+            "Issue: [Name]   Explanation: [Short explanation]   Suggestion: [Improvement] " +
+            "If it doesn't look like an anti-pattern, respond with: \"No code smell detected.\"" +
+            $"Here is the anti-pattern you are reviewing against the code: {codeSmellDefinition}"; 
+        }
 
-             public static string FewShotCodeSmellSystemMessageDotNet =
-            @"You are a code reviewer. Analyze the following DotNet code changes defined by Diff for any code smells based on the definitions below.\n " +
-            "Instructions: " +
-            "1. Identify any code smells stricly from the list of definitions I will give you.. " +
-            "2. For each one, include: - Smell name - Explanation (where/why it occurs) - Suggestion (how to improve) " +
-            "Only use the code smells provided. Format your response like this: " +
-            "Smell: [Name]   Explanation: [Short explanation]   Suggestion: [Improvement] " +
-            "If there are no code smells, respond with: \"No code smells detected.\"" +
-            "Here are the code smells definitions: " + DotNetCodeSmells.ToPromptFriendlyString();
+        public static string GetPositiveFewShotCodeSmellSystemMessageDotNet(string codeSmellDefinition){
+            return   @"You are a code reviewer. Analyze the following DotNet code changes defined by Diff for a specific anti-pattern.\n " +
+            "Instructions: If it looks like an anti-pattern, please output the following:" +
+            "Issue: [Name]   Explanation: [Short explanation]   Suggestion: [Improvement] " +
+            "If it doesn't look like an anti-pattern, respond with: \"No code smell detected.\"" +
+            $"Here is the anti-pattern you are reviewing against the code: {codeSmellDefinition}"; 
+        }
+        
 
 
        // public static string FewShotCodeSmellAssistantMessage = $"Here are the code smells definitions: {CodeSmells.ToPromptFriendlyString()}";  

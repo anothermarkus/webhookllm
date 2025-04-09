@@ -16,6 +16,6 @@ namespace GitLabWebhook.CodeReviewServices.Decorators
         }
 
         public abstract List<ChatMessage> GetMessagesForPrompt(string code);
-    }
+        }
 
 }
