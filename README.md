@@ -19,6 +19,7 @@ Checks branches against JIRA/Confluence and the MR
 
 ![image](https://github.com/user-attachments/assets/9b92c494-0966-400f-8247-2c721ec69a49)
 
+Tokenizing a list of code smells, iterating a batch of files at a time per folder up to a token limit across a code smell one-by-one, so far it's good, but giving up after finding only one identified issue rather than all of them.
 
 
 Documents to reference for this project
