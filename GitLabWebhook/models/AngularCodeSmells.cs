@@ -3,21 +3,6 @@ namespace GitLabWebhook.Models
 {
     public enum AngularCodeSmellType
     {
-        LongMethod,
-        GodClass,
-        FeatureEnvy,
-        DataClumps,
-        DuplicateCode,
-        ShotgunSurgery,
-        DivergentChange,
-        LazyClass,
-        SpeculativeGenerality,
-        SwitchStatements,
-        TemporaryField,
-        MessageChains,
-        MiddleMan,
-        PrimitiveObsession,
-        CommentsSmell,
         SelectorDuplication
     }
 
@@ -170,19 +155,36 @@ namespace GitLabWebhook.Models
                 .FirstOrDefault(kvp => kvp.Value.Equals(prettyName, StringComparison.OrdinalIgnoreCase)).Key;
         }
 
-        public static string ToPromptFriendlyString()
-        {
-            var lines = PrettyNames.Select(kvp =>
-            {
-                var name = kvp.Value;
-                var definition = Definitions.TryGetValue(name, out var def)
-                    ? def
-                    : "No definition available.";
-                return $"- **{name}**: {definition}";
-            });
+        // public static string ToPromptFriendlyString()
+        // {
+        //     var lines = PrettyNames.Select(kvp =>
+        //     {
+        //         var name = kvp.Value;
+        //         var definition = Definitions.TryGetValue(name, out var def)
+        //             ? def
+        //             : "No definition available.";
+        //         return $"- **{name}**: {definition}";
+        //     });
 
-            return "The following are common code smells and their definitions:\n\n" + string.Join("\n", lines);
-        }
+        //     return "The following are common code smells and their definitions:\n\n" + string.Join("\n", lines);
+        // }
+
+        // public static List<string> GenerateAngularCodeSmellPrompts()
+        // {
+        //     var antiPatterns = new List<string>();
+
+        //     foreach (var kvp in PrettyNames)
+        //     {
+        //         var name = kvp.Value;
+        //         var definition = Definitions.TryGetValue(name, out var def)
+        //             ? def
+        //             : "No definition available.";
+
+        //         antiPatterns.Add($"Anti-pattern: {name}: {definition}");
+        //     }
+
+        //     return antiPatterns;
+        // }
     }
 }
 

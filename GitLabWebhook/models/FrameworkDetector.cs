@@ -16,8 +16,9 @@ namespace GitLabWebhook.Models
             bool hasCSharp = changedFiles.Any(f => f.EndsWith(".cs", StringComparison.OrdinalIgnoreCase));
             bool hasAngularJson = changedFiles.Any(f => f.EndsWith("angular.json", StringComparison.OrdinalIgnoreCase));
             bool hasTypescript = changedFiles.Any(f => f.EndsWith(".ts", StringComparison.OrdinalIgnoreCase));
+            bool hasHtml = changedFiles.Any(f => f.EndsWith(".html", StringComparison.OrdinalIgnoreCase));
 
-            if (hasAngularJson || (hasTypescript && changedFiles.Any(f => f.Contains("/src/app/"))))
+            if (hasHtml ||hasAngularJson || (hasTypescript && changedFiles.Any(f => f.Contains("/src/app/"))))
             {
                 return CodeFramework.Angular;
             }

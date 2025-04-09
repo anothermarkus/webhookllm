@@ -358,7 +358,7 @@ namespace GitLabWebhook.Controllers
             var sbretval = new StringBuilder();
             var sbBuffer = new StringBuilder();
             int tokenBuffer = 0;
-            int maxTokens = 3000;
+            int maxTokens = 3000; // This is an assumption, I need to figure out how many I actually have
 
             foreach (var group in grouped)
             {
@@ -370,8 +370,17 @@ namespace GitLabWebhook.Controllers
                     if (tokenBuffer + tokens > maxTokens)
                     {
                         // Flush current buffer
-                        var promptMessages = finalStrategy.GetMessagesForPrompt(sbBuffer.ToString());
-                        sbretval.AppendLine(await _openAiService.GetFeedback(promptMessages));
+
+                        if (finalStrategy is ICodeSmellAwarePromptGenerationStrategy smellAware)
+                        {
+                            foreach ( var codeSmellType in smellAware.CodeSmellTypes){
+                                var promptMessages = smellAware.GetMessagesForPrompt(sbBuffer.ToString(), codeSmellType);
+                                sbretval.AppendLine(await _openAiService.GetFeedback(promptMessages));                                
+                            }
+                        }else{
+                            var promptMessages = finalStrategy.GetMessagesForPrompt(sbBuffer.ToString());
+                            sbretval.AppendLine(await _openAiService.GetFeedback(promptMessages));
+                        }                    
 
                         Console.WriteLine(sbretval.ToString());
 
@@ -388,9 +397,25 @@ namespace GitLabWebhook.Controllers
             // Flush remaining buffer (if anything is left)
             if (tokenBuffer > 0)
             {
-                var promptMessages = finalStrategy.GetMessagesForPrompt(sbBuffer.ToString());
-                sbretval.AppendLine(await _openAiService.GetFeedback(promptMessages));
+
+
+                if (finalStrategy is ICodeSmellAwarePromptGenerationStrategy smellAware)
+                {
+                    foreach ( var codeSmellType in smellAware.CodeSmellTypes)
+                    {
+                        var promptMessages = smellAware.GetMessagesForPrompt(sbBuffer.ToString(), codeSmellType);
+                        sbretval.AppendLine(await _openAiService.GetFeedback(promptMessages));                                
+                    }
+                }
+                else
+                {
+                    var promptMessages = finalStrategy.GetMessagesForPrompt(sbBuffer.ToString());
+                    sbretval.AppendLine(await _openAiService.GetFeedback(promptMessages));
+                }  
+
                 Console.WriteLine(sbretval.ToString());
+                             
+
             }
 
             return Ok(sbretval.ToString());

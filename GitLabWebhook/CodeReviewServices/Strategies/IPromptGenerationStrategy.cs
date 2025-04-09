@@ -1,11 +1,12 @@
 using OpenAI;
 using OpenAI.Chat;
 
- namespace GitLabWebhook.CodeReviewServices.Strategies{
+ namespace GitLabWebhook.CodeReviewServices.Strategies
+ {
  
     public interface IPromptGenerationStrategy
     {
-        public List<ChatMessage> GetMessagesForPrompt(String request);
+           public List<ChatMessage> GetMessagesForPrompt(string code);        
     }
 
 }

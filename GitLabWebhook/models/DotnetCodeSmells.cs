@@ -4,54 +4,38 @@ namespace GitLabWebhook.Models
     public enum DotNetCodeSmellType
     {
         LongMethod,
-        GodClass,
-        FeatureEnvy,
-        DataClumps,
-        DuplicateCode,
-        ShotgunSurgery,
-        DivergentChange,
-        LazyClass,
-        SpeculativeGenerality,
-        SwitchStatements,
-        TemporaryField,
-        MessageChains,
-        MiddleMan,
-        PrimitiveObsession,
-        CommentsSmell,
-        SelectorDuplication
     }
 
     public static class DotNetCodeSmells
     {
         public static readonly Dictionary<DotNetCodeSmellType, string> PrettyNames = new()
         {
-            // { CodeSmellType.LongMethod, "Long Method" },
-            // { CodeSmellType.GodClass, "God Class" },
-            // { CodeSmellType.FeatureEnvy, "Feature Envy" },
-            // { CodeSmellType.DataClumps, "Data Clumps" },
-            // { CodeSmellType.DuplicateCode, "Duplicate Code" },
-            // { CodeSmellType.ShotgunSurgery, "Shotgun Surgery" },
-            // { CodeSmellType.DivergentChange, "Divergent Change" },
-            // { CodeSmellType.LazyClass, "Lazy Class" },
-            // { CodeSmellType.SpeculativeGenerality, "Speculative Generality" },
-            // { CodeSmellType.SwitchStatements, "Switch Statements" },
-            // { CodeSmellType.TemporaryField, "Temporary Field" },
-            // { CodeSmellType.MessageChains, "Message Chains" },
-            // { CodeSmellType.MiddleMan, "Middle Man" },
-            // { CodeSmellType.PrimitiveObsession, "Primitive Obsession" },
-            // { CodeSmellType.CommentsSmell, "Comments Smell" },
-            { DotNetCodeSmellType.SelectorDuplication, "Selector Duplication" }
+            { DotNetCodeSmellType.LongMethod, "Long Method" },
+            // { DotNetCodeSmellType.GodClass, "God Class" },
+            // { DotNetCodeSmellType.FeatureEnvy, "Feature Envy" },
+            // { DotNetCodeSmellType.DataClumps, "Data Clumps" },
+            // { DotNetCodeSmellType.DuplicateCode, "Duplicate Code" },
+            // { DotNetCodeSmellType.ShotgunSurgery, "Shotgun Surgery" },
+            // { DotNetCodeSmellType.DivergentChange, "Divergent Change" },
+            // { DotNetCodeSmellType.LazyClass, "Lazy Class" },
+            // { DotNetCodeSmellType.SpeculativeGenerality, "Speculative Generality" },
+            // { DotNetCodeSmellType.SwitchStatements, "Switch Statements" },
+            // { DotNetCodeSmellType.TemporaryField, "Temporary Field" },
+            // { DotNetCodeSmellType.MessageChains, "Message Chains" },
+            // { DotNetCodeSmellType.MiddleMan, "Middle Man" },
+            // { DotNetCodeSmellType.PrimitiveObsession, "Primitive Obsession" },
+            // { DotNetCodeSmellType.CommentsSmell, "Comments Smell" },
         };
 
         public static readonly Dictionary<string, string> Definitions = new()
         {
-            // {
-            //     "Long Method",
-            //     "A method that is too long and tries to do too much. It should be broken into smaller methods. Example: " +
-            //     "void ProcessOrder() { " +
-            //     "// hundreds of lines of logic " +
-            //     "}"
-            // },
+            {
+                "Long Method",
+                "A method that is too long and tries to do too much. It should be broken into smaller methods. Example: " +
+                "void ProcessOrder() { " +
+                "// hundreds of lines of logic " +
+                "}"
+            },
             // {
             //     "God Class",
             //     "A class that knows too much or does too much, violating single responsibility. Example: " +
@@ -146,13 +130,13 @@ namespace GitLabWebhook.Models
             //     "// This method sorts users by last name alphabetically " +
             //     "users.Sort((a, b) => a.LastName.CompareTo(b.LastName));"
             // },
-            {
-                "Selector Duplication",
-                "The same UI component or selector is repeated multiple times with different conditions, instead of being rendered dynamically using an *ngFor loop with data-driven logic. Example: " +
-                "<my-selector *ngIf=\"showA\"></my-selector> " +
-                "<my-selector *ngIf=\"showB\"></my-selector> " +
-                "// Better: use *ngFor with a filtered array"
-            }
+            // {
+            //     "Selector Duplication",
+            //     "The same UI component or selector is repeated multiple times with different conditions, instead of being rendered dynamically using an *ngFor loop with data-driven logic. Example: " +
+            //     "<my-selector *ngIf=\"showA\"></my-selector> " +
+            //     "<my-selector *ngIf=\"showB\"></my-selector> " +
+            //     "// Better: use *ngFor with a filtered array"
+            // }
         };
 
 
@@ -183,6 +167,25 @@ namespace GitLabWebhook.Models
 
             return "The following are common code smells and their definitions:\n\n" + string.Join("\n", lines);
         }
+
+        // public static List<string> GenerateDotNetCodeSmellPrompts()
+        // {
+
+        //     var antiPatterns = new List<string>();
+        //       var lines = PrettyNames.Select(kvp =>
+        //     {
+        //         var name = kvp.Value;
+        //         var definition = Definitions.TryGetValue(name, out var def)
+        //             ? def
+        //             : "No definition available.";
+
+        //         lines.Add($"Anti-pattern: {name}: {definition}");
+        //     });
+
+        //     return antiPatterns;
+        // }
+
+
     }
 }
 
