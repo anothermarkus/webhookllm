@@ -58,7 +58,8 @@ namespace GitLabWebhook.CodeReviewServices
                 int mergeRequestIndex = Array.IndexOf(segments, "merge_requests");
                 if (mergeRequestIndex > 0)
                 {
-                    var pathSegments = segments.Take(mergeRequestIndex - 1);
+                    int end = segments[mergeRequestIndex - 1] == "-" ? mergeRequestIndex - 1 : mergeRequestIndex;
+                    var pathSegments = segments.Take(end);
                     return string.Join("/", pathSegments);
                 }
             }
