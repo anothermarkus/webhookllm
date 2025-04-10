@@ -21,6 +21,7 @@ Checks branches against JIRA/Confluence and the MR
 
 Tokenizing a list of code smells, iterating a batch of files at a time per folder up to a token limit across a code smell one-by-one, so far it's good, but giving up after finding only one identified issue rather than all of them.
 
+Failed at iterating code smell at a time, doing ZeroShot strategy with new model mistral, getting much better results.
 
 Documents to reference for this project
 - Review API Patterns https://github.com/openai/openai-dotnet/tree/OpenAI_2.1.0
