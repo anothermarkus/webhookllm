@@ -7,7 +7,7 @@ using GitLabWebhook.Models;
 namespace GitLabWebhook.CodeReviewServices.Strategies
 {
 
-    public interface ICodeSmellAwarePromptGenerationStrategy : IPromptGenerationStrategy
+    public interface ICodeSmellAwarePromptGenerationStrategy 
     {
         public IEnumerable<Enum> CodeSmellTypes { get; }
         public List<ChatMessage> GetMessagesForPrompt(string code, Enum codeSmellType);

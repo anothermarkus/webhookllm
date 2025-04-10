@@ -3,16 +3,41 @@ namespace GitLabWebhook.Models
     public static class OpenAPIPrompts
     {
 
-        public static string FewShotCodeSmellPromptUserInput = @"Here are the deltas of all the files that have changed in my Merge Request please review it for me: {code}";
 
 
-        public static string GetPositiveFewShotCodeSmellSystemMessageAngular(string codeSmellDefinition){
-         return   @"You are a code reviewer. Analyze the following Angular code changes defined by Diff for a specific anti-pattern.\n " +
-            "Instructions: If it looks like an anti-pattern, please output the following:" +
-            "Issue: [Name]   Explanation: [Short explanation]   Suggestion: [Improvement] " +
-            "If it doesn't look like an anti-pattern, respond with: \"No code smell detected.\"" +
-            $"Here is the anti-pattern you are reviewing against the code: {codeSmellDefinition}"; 
+       public static string FewShotCodeSmellPromptUserInput = @"Here are the deltas of all the files that have changed in my Merge Request. Please review them for any potential code smells:\n\n{code}";
+
+
+       public static string ZeroShotCodeSmellPromptUserInput = @"Here are the deltas of all the files that have changed in my Merge Request. Please review them for any potential code smells:\n\n{code}";
+
+       
+
+        
+
+
+        public static string GetPositiveFewShotCodeSmellSystemMessageAngular(string codeSmellDefinition)
+        {
+            return $"""
+                You are a code reviewer. Analyze the following Angular code changes defined by a unified diff.
+
+                🔍 Instructions:
+                Your task is to detect a specific code smell: Selector Duplication **only**.
+
+                👁️‍🗨️ Definition:
+                Selector Duplication happens when the **exact same component or element** is repeated multiple times with different `*ngIf`s in the same heirachial level instead of being rendered once using `*ngFor`.
+
+                {codeSmellDefinition}
+
+                📌 If the code does not match the issue described, respond strictly with:
+                "No code smell detected."
+                """;
         }
+
+          public static string GetPositiveFewShotCodeAssistantMessageAngular(string codeSmellDefinition)
+        {
+            return $"Based on the provided code, I have detected {codeSmellDefinition} The following changes should be made to address the smell: [recommended changes]";                
+        }
+
 
         public static string GetPositiveFewShotCodeSmellSystemMessageDotNet(string codeSmellDefinition){
             return   @"You are a code reviewer. Analyze the following DotNet code changes defined by Diff for a specific anti-pattern.\n " +
@@ -22,9 +47,6 @@ namespace GitLabWebhook.Models
             $"Here is the anti-pattern you are reviewing against the code: {codeSmellDefinition}"; 
         }
         
-
-
-       // public static string FewShotCodeSmellAssistantMessage = $"Here are the code smells definitions: {CodeSmells.ToPromptFriendlyString()}";  
 
         /// <summary>
         ///  gleaned from: https://cookbook.openai.com/examples/third_party/code_quality_and_security_scan_with_github_actions
@@ -45,7 +67,7 @@ namespace GitLabWebhook.Models
             "{{CODE_SNIPPET_HERE}}";
 
 
-        public static string MergeRequestReviewPrompt =
+        public static string CodeReviewPromptDotNet =
             "You are an Enterprise Code Assistant ensuring the code follows best practices. I am providing you with a JSON array of file changes for a merge request (MR). " +
             "Each item in the array represents a file change in the MR.\n\n" +
 
@@ -91,6 +113,28 @@ namespace GitLabWebhook.Models
             "The code should be self-documenting and should not require additional comments or clarification about its behavior.\n\n" +
 
             "Please respond with a JSON array only. The structure should be: [ `FileName`, `LLMComment`, `LineForComment` ].";
+
+
+        public static string CodeReviewPromptAngular =
+            "You are an Enterprise Code Assistant ensuring the code follows best practices. I am providing you with a diff representing the changes for a merge request " +
+
+            "Review each file change thoroughly for these code standards:\n\n" +
+            "• **Repetitive Component Usage**: Avoid duplicating the same components multiple times in a template with only slight variations. If the same component is rendered with different conditions or input bindings (e.g., *ngIf), it's often a sign of duplication. Consider using *ngFor with a data structure to dynamically render components instead of repeating them manually.\n" +
+            "• **Improper Use of ngIf vs ngFor**: Don't use *ngIf when *ngFor should be used. *ngIf is designed to conditionally render a single element, while *ngFor should be used when rendering multiple items from an array or iterable. If you have multiple similar elements that could be dynamically created from an array, replace *ngIf with *ngFor.\n" +
+            "• **Change Detection Issues**: Be mindful of Angular's change detection strategy. Avoid writing complex logic directly in templates that could lead to performance issues (e.g., expensive calculations or function calls). Instead, move these calculations into the component class and use memoization or `trackBy` functions to optimize performance.\n" +
+            "• **Excessive Component Nesting**: Avoid deep component hierarchies. Too much nesting can lead to performance issues and hard-to-maintain code. Break down large components into smaller, reusable, and more manageable ones.\n" +
+            "• **Template-Driven Forms Overuse**: Avoid using template-driven forms for complex form logic. For more complex forms, prefer reactive forms, as they provide better control, scalability, and testability. Template-driven forms are more suited for simpler, static forms.\n" +
+            "• **Lack of Lazy Loading**: Failing to implement lazy loading can result in unnecessarily large initial payloads for the application. Use Angular's lazy loading feature to split the application into smaller chunks that are only loaded when needed, reducing the initial loading time.\n" +
+            "• **Hardcoding Data in Templates**: Avoid hardcoding dynamic data directly in the template. For example, avoid binding UI elements to data that’s not coming from the component or service. Always aim to keep the logic and data in the component class for better maintainability and testability.\n" +
+            "• **Inefficient Event Binding**: Be cautious about binding events within loops or repeated elements. This can result in unnecessary function calls and decreased performance. Instead, optimize by binding the event handler at the component level and using `$event` to access specific data.\n" +
+            "• **Improper Use of Observables**: Avoid unnecessary subscriptions or subscriptions without proper cleanup. Ensure that Observables are unsubscribed properly, especially in components where the lifecycle is tied to DOM changes, to prevent memory leaks. Prefer using the `async` pipe in templates or use `takeUntil` in component code to handle subscriptions.\n" +
+            "• **Memory Leaks Due to Subscriptions**: In Angular, it's crucial to unsubscribe from any subscriptions when a component is destroyed. If you're subscribing to the store or observables manually (e.g., via `store.select()` or `observable.subscribe()`), ensure you unsubscribe to avoid memory leaks. Use `takeUntil` with a `Subject` to handle cleanup on component destruction, or use the `async` pipe to manage subscriptions automatically in the template.\n" +
+            "• **Using Services to Store State**: When using NgRx, avoid storing component state within services for cross-component state sharing. Instead, rely on the store to manage application state. Using the store keeps state management predictable, traceable, and scalable. Components should subscribe to the store directly to receive state updates, rather than holding state in services that need to be referenced later.\n" +
+            "• **Mismanagement of Services and Singletons**: Avoid creating services inside components. Services should be injected via dependency injection and should be provided at the appropriate level (root or module) to avoid multiple instances and ensure proper singleton behavior.\n" +
+            "• **Improper Error Handling**: Ensure proper error handling in your services and components, especially for HTTP requests. Use `.catchError()` or `try-catch` blocks to gracefully handle errors and provide fallback logic or user-friendly messages when needed.\n" +
+            "• **Direct DOM Manipulation**: Avoid direct DOM manipulation using `document.getElementById()` or other native JavaScript DOM APIs. Instead, rely on Angular’s built-in mechanisms like directives or `Renderer2` to manipulate the DOM safely and efficiently, ensuring cross-platform compatibility.\n" +
+            "• **Excessive use of Local Storage or Session Storage**: Be careful when using local storage or session storage for data persistence in Angular. Sensitive data should never be stored in the browser storage without encryption, and reliance on storage should be minimized to ensure proper application performance and security.\n" +
+            "Please return everything in Markdown format along with an overall grade: Great, Satisfactory, or Poor.";
 
 
 

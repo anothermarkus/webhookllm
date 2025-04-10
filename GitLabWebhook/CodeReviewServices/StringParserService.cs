@@ -12,12 +12,19 @@ namespace GitLabWebhook.CodeReviewServices
         /// </summary>
         /// <param name="url">The URL of the merge request.</param>
         /// <returns>The merge request ID as a string.</returns>
-        public static string GetMergeRequestIdFromUrl(string url)
+        public static string? GetMergeRequestIdFromUrl(string url)
         {
-
             Uri uri = new Uri(url);
-            var segments = uri.AbsolutePath.Split('/');
-            return segments[segments.Length - 1]; // The last segment should be the MR ID
+            var segments = uri.AbsolutePath.Split('/', StringSplitOptions.RemoveEmptyEntries);
+
+            // Handle both UI and API format
+            int mrIndex = Array.IndexOf(segments, "merge_requests");
+            if (mrIndex >= 0 && mrIndex < segments.Length - 1)
+            {
+                return segments[mrIndex + 1];
+            }
+
+            return null;
         }
 
         /// <summary>
@@ -32,29 +39,42 @@ namespace GitLabWebhook.CodeReviewServices
             return $"{firstPart}{secondPart}";
         }
 
-        /// <summary>
-        /// Retrieves the project path from the provided URL.
-        /// </summary>
-        /// <param name="url">The URL of the project.</param>
-        /// <returns>The project path as a string.</returns>
-        public static string GetProjectPathFromUrl(string url)
+        public static string? GetProjectPathFromUrl(string url)
         {
             Uri uri = new Uri(url);
-            var segments = uri.AbsolutePath.Split('/');
+            var segments = uri.AbsolutePath.Split('/', StringSplitOptions.RemoveEmptyEntries);
 
-            // Find the "merge_requests" part and exclude anything after that (including `/-/` and the merge request ID)
-            int mergeRequestIndex = Array.IndexOf(segments, "merge_requests");
-
-            // We need to handle the special case where `/-/` exists, and it's part of the URL.
-            // If we find `/-/`, we need to skip that as well.
-            if (mergeRequestIndex > 0 && segments[mergeRequestIndex - 1] == "-")
+            if (segments.Contains("api")) // API-style URL
             {
-                mergeRequestIndex--; // Exclude `/-/` by adjusting the index
+                int projectIndex = Array.IndexOf(segments, "projects");
+                if (projectIndex >= 0 && projectIndex < segments.Length - 1)
+                {
+                    string encodedPath = segments[projectIndex + 1];
+                    return Uri.UnescapeDataString(encodedPath);
+                }
+            }
+            else // UI-style URL
+            {
+                int mergeRequestIndex = Array.IndexOf(segments, "merge_requests");
+                if (mergeRequestIndex > 0)
+                {
+                    var pathSegments = segments.Take(mergeRequestIndex - 1);
+                    return string.Join("/", pathSegments);
+                }
             }
 
-            // Combine everything from the beginning to before "merge_requests" (and exclude `/-/` if present)
-            return string.Join("/", segments, 1, mergeRequestIndex - 1);
+            return null;
         }
+
+        public static string? GetCommitIdFromUrl(string url)
+        {
+            Uri uri = new Uri(url);
+            var query = System.Web.HttpUtility.ParseQueryString(uri.Query);
+            return query["commit_id"];
+        }
+
+
+
 
         /// <summary>
         /// Retrieves the JIRA ticket from the provided title.
