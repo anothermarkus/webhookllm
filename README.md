@@ -26,7 +26,7 @@ Failed at iterating code smell at a time, doing ZeroShot strategy with new model
 There was too much uncertainty with regards to the models and the types of prompts and their ability to detect code issues.
 I have created a new repo that summarizes the results of a few test-runs here.  The conclusion was very good results for llama-3-1-8b-instruct compared to other models
 
-![image](https://github.com/user-attachments/assets/1ad7464c-20af-4534-b134-d1b44be5a7eb)
+<img src="https://github.com/user-attachments/assets/db6851c9-c30e-4671-bd85-518413e99d13" width="500" />
 
 
 https://github.com/anothermarkus/llmexperiment
