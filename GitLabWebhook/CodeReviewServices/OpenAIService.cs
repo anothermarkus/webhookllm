@@ -40,7 +40,7 @@ namespace CodeReviewServices
             var apiKeyCredential = new ApiKeyCredential(_apiKey);
             var options = new OpenAIClientOptions
             {
-                Endpoint = new Uri(_openAiBaseUrl), // Specify the hostname here
+                Endpoint = new Uri(_openAiBaseUrl), 
             };
             _chatClient = new ChatClient("llama-3-1-8b-instruct", apiKeyCredential, options);
 
@@ -60,6 +60,21 @@ namespace CodeReviewServices
             };
 
             var result = await _chatClient.CompleteChatAsync(messages, chatCompletionOptions);
+
+            return result.Value.Content[0].Text;
+        }
+
+        public async Task<string> SummarizeFeedback(String unsanitized){
+
+            var chatCompletionOptions = new ChatCompletionOptions
+            {
+                Temperature = 0,  // Set the temperature (controls randomness)
+                TopP = 1.0f, // Keeps sampling open
+            };
+
+            var userChatMessage = new UserChatMessage($"Please aggregate and summarize this in markdown format {unsanitized}" );
+
+            var result = await _chatClient.CompleteChatAsync(new List<ChatMessage>{ userChatMessage }, chatCompletionOptions );
 
             return result.Value.Content[0].Text;
         }

@@ -27,6 +27,12 @@ namespace GitLabWebhook.CodeReviewServices
             return null;
         }
 
+         // Skip files with ".spec.ts" or "Test" in the name
+        public static bool IsTestFile(string filename){             
+            return (filename.EndsWith(".spec.ts", StringComparison.OrdinalIgnoreCase) ||
+                filename.Contains("Test", StringComparison.OrdinalIgnoreCase));
+        }
+
         /// <summary>
         /// Converts a JIRA release target to the Confluence format.
         /// </summary>
