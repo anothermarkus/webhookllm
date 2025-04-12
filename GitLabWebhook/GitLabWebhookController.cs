@@ -9,6 +9,7 @@ using GitLabWebhook.CodeReviewServices.Strategies;
 using System.Net.Http;
 
 using System.Text;
+using GitLabWebhook.CodeReviewServicesdotne;
 
 namespace GitLabWebhook.Controllers
 {
@@ -47,6 +48,8 @@ namespace GitLabWebhook.Controllers
         private readonly string? _repoDisallowListContainsText;
         private readonly IPromptGenerationStrategyFactory _strategyFactory;
 
+        private readonly StaticAnalyzerService _staticAnalyzerService;
+
 
 
         /// <summary>
@@ -66,6 +69,7 @@ namespace GitLabWebhook.Controllers
             _repoAllowListContainsText = configuration["Allowlist:Contains"];
             _repoDisallowListContainsText = configuration["Disallowlist:Contains"];
             _strategyFactory = strategyFactory;
+            _staticAnalyzerService = new StaticAnalyzerService();
         }
 
 
@@ -369,6 +373,12 @@ namespace GitLabWebhook.Controllers
                 foreach (var fileDiff in group)
                 {
                     string fileText = fileDiff.GetFileNameAndDiff();
+
+                    // Ain't nobody got time for tests
+                    if (StringParserService.IsTestFile(fileDiff.FileName)){
+                        continue;
+                    }
+
                     string newCode = ExtractNewCodeFromDiff(fileText);
 
                     int tokens = EstimateTokenCount(newCode);
@@ -428,8 +438,8 @@ namespace GitLabWebhook.Controllers
 
 
 
-        [HttpGet("CodeReviewfeedback")]
-        public async Task<IActionResult> CodeReviewfeedback(string mrURL, StrategyType strategyType)
+        [HttpGet("CodeReviewfeedbackViaLLM")]
+        public async Task<IActionResult> CodeReviewfeedbackViaLLM(string mrURL, StrategyType strategyType)
         {
             var mrDetails = await _gitLabService.GetMergeRequestDetailsFromUrl(mrURL);
             var baseStrategy = _strategyFactory.GetStrategy(strategyType);
@@ -441,12 +451,31 @@ namespace GitLabWebhook.Controllers
             var groupedDiffs = GroupFileDiffsByDirectory(mrDetails.fileDiffs);
             var feedback = await GenerateCodeReviewFeedback(finalStrategy, groupedDiffs);
 
-            return Ok("Using strategy: " + finalStrategy.GetType().Name + "\n" + feedback);
+            var cleanResponse = await _openAiService.SummarizeFeedback(feedback);
+
+            return Ok("Using strategy: " + finalStrategy.GetType().Name + "\n" + cleanResponse);
+        }
+
+        [HttpGet("CodeReviewfeedbackViaStaticAnalysis")]
+        public async Task<IActionResult> CodeReviewfeedbackViaStaticAnalysis(string mrURL)
+        {
+            var mrDetails = await _gitLabService.GetMergeRequestDetailsFromUrl(mrURL);
+
+            var results = await _staticAnalyzerService.AnalyzeDiffedFilesAsync(mrDetails.fileDiffs);
+
+            var sb = new StringBuilder();
+
+            foreach (var diagnostic in results)
+            {
+                sb.Append($"Diagnostic: {diagnostic.GetMessage()}\n");
+            }
+
+            return Ok(sb.ToString());
         }
 
 
 
 
-  
+
     }
 }
