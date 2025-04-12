@@ -42,7 +42,8 @@ namespace CodeReviewServices
             {
                 Endpoint = new Uri(_openAiBaseUrl), // Specify the hostname here
             };
-            _chatClient = new ChatClient("mixtral-8x7b-instruct-v01", apiKeyCredential, options);
+            _chatClient = new ChatClient("llama-3-1-8b-instruct", apiKeyCredential, options);
+
         }
 
     
