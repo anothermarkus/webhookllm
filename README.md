@@ -19,6 +19,18 @@ Checks branches against JIRA/Confluence and the MR
 
 ![image](https://github.com/user-attachments/assets/9b92c494-0966-400f-8247-2c721ec69a49)
 
+Tokenizing a list of code smells, iterating a batch of files at a time per folder up to a token limit across a code smell one-by-one, so far it's good, but giving up after finding only one identified issue rather than all of them.
+
+Failed at iterating code smell at a time, doing ZeroShot strategy with new model mistral, getting much better results.
+
+There was too much uncertainty with regards to the models and the types of prompts and their ability to detect code issues.
+I have created a new repo that summarizes the results of a few test-runs here.  The conclusion was very good results for llama-3-1-8b-instruct compared to other models
+
+<img src="https://github.com/user-attachments/assets/db6851c9-c30e-4671-bd85-518413e99d13" width="500" />
+
+
+https://github.com/anothermarkus/llmexperiment
+
 
 
 Documents to reference for this project

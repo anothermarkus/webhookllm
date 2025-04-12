@@ -63,7 +63,7 @@ namespace GitLabWebhook.Tests
 
 
             // Arrange
-            var url = "https://example.com/merge_requests/1";
+            var url = "https://gitlab.dell.com/seller/dsa/production/DSAPlatform/qto-quote-create/draft-quote/dsa-draft-quote-mfe/-/merge_requests/1757";
             var mrDetails = await service.GetMergeRequestDetailsFromUrl(url);
 
             // Assert

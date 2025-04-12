@@ -49,6 +49,11 @@ namespace GitLabWebhook.Tests.CodeReviewServices
             "https://gitlab.dell.com/seller/dsa/production/DSAPlatform/qto-quote-create/draft-quote/DSA-CartService/merge_requests/1375",
             "seller/dsa/production/DSAPlatform/qto-quote-create/draft-quote/DSA-CartService"
         )]
+        [InlineData(
+            "https://gitlab.dell.com/seller/dsa/production/DSAPlatform/qto-quote-create/draft-quote/dsa-draft-quote-mfe/-/merge_requests/1757/diffs?commit_id=8d22d6d82060794d842aac9b9f8a2ddc45979d8a",
+            "seller/dsa/production/DSAPlatform/qto-quote-create/draft-quote/dsa-draft-quote-mfe"
+        )]
+
         public void ShouldParseProjectName(String inputURL, String expectedResult)
         {
             //Arrange

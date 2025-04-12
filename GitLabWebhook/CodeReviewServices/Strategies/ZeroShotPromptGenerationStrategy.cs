@@ -6,24 +6,19 @@ using GitLabWebhook.Models;
  namespace GitLabWebhook.CodeReviewServices.Strategies
  {
  
-    public class ZeroShotPromptGenerationStrategy : IPromptGenerationStrategy
+    public class ZeroShotPromptGenerationStrategy : ICodeSmellUnawarePromptGenerationStrategy, IPromptGenerationStrategy
     {
-        public List<ChatMessage> GetMessagesForPrompt(String code){
 
-            var criteriaPrompt = string.Join("\n", OpenAPIPrompts.EnterpriseCodeStandardsCriteria);
-            var prompt =
-                $"Please review the code based on the following criteria:\n{criteriaPrompt}\n"
-                + "Provide suggestions and feedback for improvements.";
+     public virtual List<ChatMessage> GetMessagesForPrompt(string code){
+        throw new NotImplementedException();
+     }
 
-            var messages = new List<ChatMessage> { new UserChatMessage(prompt) };
+    public virtual List<ChatMessage> GetMessagesForPrompt(string code, Enum codeSmellType){
+        throw new NotImplementedException();
+    }
 
-            return new List<ChatMessage>
-            {
-                new SystemChatMessage ( prompt ),
-                new UserChatMessage ( $"Here is the code:\n{code}\n\n" )
-            };
+    public virtual IEnumerable<Enum> CodeSmellTypes => throw new NotImplementedException();
 
-        }
     }
 
 }

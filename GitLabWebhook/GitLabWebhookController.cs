@@ -7,7 +7,7 @@ using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using GitLabWebhook.CodeReviewServices.Strategies;
 using System.Net.Http;
-using GitLabWebhook.CodeReviewServices.Decorators;
+
 using System.Text;
 
 namespace GitLabWebhook.Controllers
@@ -316,85 +316,134 @@ namespace GitLabWebhook.Controllers
             return (int)Math.Ceiling((double)text.Length / charsPerToken);
         }
 
+        private async Task<string> FlushBuffer(IPromptGenerationStrategy strategy, string code)
+        {
+            var sb = new StringBuilder();
+
+            if (strategy is ICodeSmellAwarePromptGenerationStrategy smellAware)
+            {
+                foreach (var codeSmell in smellAware.CodeSmellTypes)
+                {
+                    var messages = smellAware.GetMessagesForPrompt(code, codeSmell);
+                    sb.AppendLine($"CodeSmell Review: {codeSmell}");
+                    sb.AppendLine(await _openAiService.GetFeedback(messages));
+                }
+            }
+            
+            if (strategy is ICodeSmellUnawarePromptGenerationStrategy smellUnaware)
+            {
+                var messages = smellUnaware.GetMessagesForPrompt(code);
+                sb.AppendLine(await _openAiService.GetFeedback(messages));
+            }
+
+            return sb.ToString();
+        }
+
+        private string ExtractNewCodeFromDiff(string diff)
+        {
+            var lines = diff.Split('\n');
+            var builder = new StringBuilder();
+
+            foreach (var line in lines)
+            {
+                if (line.StartsWith("+") && !line.StartsWith("++")) // Added line
+                    builder.AppendLine(line.Substring(1));
+                else if (!line.StartsWith("-") && !line.StartsWith("@@") && !line.StartsWith("diff") && !line.StartsWith("---") && !line.StartsWith("+++"))
+                    builder.AppendLine(line); // Context lines
+            }
+
+            return builder.ToString();
+        }
+
+
+
+        private async Task<string> GenerateCodeReviewFeedback(IPromptGenerationStrategy strategy, List<IGrouping<string, FileDiff>> groupedDiffs)
+        {
+            var sbResult = new StringBuilder();
+            var sbBuffer = new StringBuilder();
+            int tokenBuffer = 0;
+            int maxTokens = 3000;
+
+            foreach (var group in groupedDiffs)
+            {
+                foreach (var fileDiff in group)
+                {
+                    string fileText = fileDiff.GetFileNameAndDiff();
+                    string newCode = ExtractNewCodeFromDiff(fileText);
+
+                    int tokens = EstimateTokenCount(newCode);
+
+                    if (tokenBuffer + tokens > maxTokens)
+                    {
+                        sbResult.AppendLine(await FlushBuffer(strategy, sbBuffer.ToString()));
+                        sbBuffer.Clear();
+                        tokenBuffer = 0;
+                    }
+
+                    sbBuffer.AppendLine(newCode);
+                    tokenBuffer += tokens;
+                }
+            }
+
+            if (tokenBuffer > 0)
+                sbResult.AppendLine(await FlushBuffer(strategy, sbBuffer.ToString()));
+
+            return sbResult.ToString();
+        }
+
+
+        private List<IGrouping<string, FileDiff>> GroupFileDiffsByDirectory(List<FileDiff> fileDiffs) => fileDiffs.GroupBy(fd => GetDirectoryFromFileName(fd.FileName)).ToList();
+
+        private IPromptGenerationStrategy GetDecoratedStrategy(IPromptGenerationStrategy baseStrategy, StrategyType strategyType, MRDetails mrDetails)
+        {
+           
+            var changedFiles = mrDetails.fileDiffs.Select(fd => fd.FileName).ToList();
+            var framework = FrameworkDetector.DetectFrameworkFromFiles(changedFiles);
+
+            if (strategyType == StrategyType.FewShot)
+            {
+                return framework switch
+                {
+                    CodeFramework.Angular => new AngularFewShotPromptGenerationStrategy(),
+                    CodeFramework.DotNet => new DotNetFewShotPromptGenerationStrategy(),
+                    _ => baseStrategy
+                };
+            }
+
+            if (strategyType == StrategyType.ZeroShot)
+            {
+             return framework switch
+                {
+                    CodeFramework.Angular => new AngularZeroShotPromptGenerationStrategy(),
+                    CodeFramework.DotNet => new DotNetZeroShotPromptGenerationStrategy(),
+                    _ => baseStrategy
+                };
+            }
+
+            return baseStrategy;
+
+            
+        }
+
+
+
+
         [HttpGet("CodeReviewfeedback")]
         public async Task<IActionResult> CodeReviewfeedback(string mrURL, StrategyType strategyType)
         {
             var mrDetails = await _gitLabService.GetMergeRequestDetailsFromUrl(mrURL);
             var baseStrategy = _strategyFactory.GetStrategy(strategyType);
+
             if (baseStrategy == null)
-            {
                 return BadRequest("Invalid strategy type.");
-            }
 
-            var codeContent = mrDetails.GetAllFileDiffsWithFullContent();
+            var finalStrategy = GetDecoratedStrategy(baseStrategy, strategyType, mrDetails);
+            var groupedDiffs = GroupFileDiffsByDirectory(mrDetails.fileDiffs);
+            var feedback = await GenerateCodeReviewFeedback(finalStrategy, groupedDiffs);
 
-            List<string> changedFiles = new List<string>();
-
-            mrDetails.fileDiffs.ForEach(fileDiff =>
-            {
-                changedFiles.Add(fileDiff.FileName);
-            });  
-
-          
-            // TODO refactor this, just testing out tokenization
-
-            var framework = FrameworkDetector.DetectFrameworkFromFiles(changedFiles);
-
-            var finalStrategy = baseStrategy; // For most types, it's going to be the same as baseStrategy
-
-            if (strategyType == StrategyType.FewShot){
-                finalStrategy  = framework switch
-                {
-                    CodeFramework.Angular => new AngularPromptDecorator(baseStrategy),
-                    CodeFramework.DotNet => new DotNetPromptDecorator(baseStrategy),
-                    _ => baseStrategy
-                };
-            }
-
-            var grouped = mrDetails.fileDiffs
-            .GroupBy(fd => GetDirectoryFromFileName(fd.FileName))
-            .ToList();
-            
-            var sbretval = new StringBuilder();
-            var sbBuffer = new StringBuilder();
-            int tokenBuffer = 0;
-            int maxTokens = 3000;
-
-            foreach (var group in grouped)
-            {
-                foreach (var fileDiff in group)
-                {
-                    string fileText = fileDiff.GetFileNameAndDiff();
-                    int tokens = EstimateTokenCount(fileText);
-
-                    if (tokenBuffer + tokens > maxTokens)
-                    {
-                        // Flush current buffer
-                        var promptMessages = finalStrategy.GetMessagesForPrompt(sbBuffer.ToString());
-                        sbretval.AppendLine(await _openAiService.GetFeedback(promptMessages));
-
-                        Console.WriteLine(sbretval.ToString());
-
-                        // Reset buffer
-                        sbBuffer.Clear();
-                        tokenBuffer = 0;
-                    }
-
-                    sbBuffer.AppendLine(fileText);
-                    tokenBuffer += tokens;
-                }
-            }
-
-            // Flush remaining buffer (if anything is left)
-            if (tokenBuffer > 0)
-            {
-                var promptMessages = finalStrategy.GetMessagesForPrompt(sbBuffer.ToString());
-                sbretval.AppendLine(await _openAiService.GetFeedback(promptMessages));
-                Console.WriteLine(sbretval.ToString());
-            }
-
-            return Ok(sbretval.ToString());
+            return Ok("Using strategy: " + finalStrategy.GetType().Name + "\n" + feedback);
         }
+
 
 
 

@@ -46,90 +46,129 @@ namespace GitLabWebhook.CodeReviewServices
         {
             string mrId = StringParserService.GetMergeRequestIdFromUrl(url);
             string projectPath = StringParserService.GetProjectPathFromUrl(url);
+            string? commitId = StringParserService.GetCommitIdFromUrl(url);
 
             if (mrId != null && projectPath != null)
             {
-                return await FetchMRDetails(url, projectPath, mrId);
+                return await FetchMRDetails(url, projectPath, mrId, commitId);
             }
 
             throw new Exception("Not able to fetch MR Details mrID or projectPath is null");
         }
 
-        private async Task<MRDetails> FetchMRDetails(string url, string projectPath, string mrId)
+        private async Task<MRDetails> FetchMRDetails(string url, string projectPath, string mrId, string? commitId = null)
         {
-        
-            string apiUrl = $"{_gitlabBaseURL}/{Uri.EscapeDataString(projectPath)}/merge_requests/{mrId}/changes";
+            List<FileDiff> diffs = new();
+            string title = null!;
+            string target_branch = null!;
+            string baseSha = "";
+            string headSha = "";
+            string startSha = "";
 
-            HttpResponseMessage response = await _httpClient.GetAsync(apiUrl);
-
-            if (response.IsSuccessStatusCode)
+            if (!string.IsNullOrEmpty(commitId))
             {
+                // Fetch commit diffs
+                string commitDiffUrl = $"{_gitlabBaseURL}/{Uri.EscapeDataString(projectPath)}/repository/commits/{commitId}/diff";
+                var commitResponse = await _httpClient.GetAsync(commitDiffUrl);
+
+                if (!commitResponse.IsSuccessStatusCode)
+                {
+                    throw new Exception($"Failed to fetch commit diff from {commitDiffUrl}");
+                }
+
+                string commitBody = await commitResponse.Content.ReadAsStringAsync();
+                var commitDiffs = JArray.Parse(commitBody);
+
+                foreach (var change in commitDiffs)
+                {
+                    string fileName = change["new_path"]!.ToString();
+                    string diff = change["diff"]!.ToString();
+
+                    string fileURL = $"{_gitlabBaseURL}/{Uri.EscapeDataString(projectPath)}/repository/files/{Uri.EscapeDataString(fileName)}/raw?ref={commitId}";
+                    try
+                    {
+                        var fileContents = await _httpClient.GetStringAsync(fileURL);
+
+                        diffs.Add(new FileDiff
+                        {
+                            FileName = fileName,
+                            FileContents = fileContents,
+                            Diff = diff
+                        });
+                    }
+                    catch { /* Handle deleted/renamed files */ }
+                }
+
+                // Fetch title and branch from MR info
+                string mrInfoUrl = $"{_gitlabBaseURL}/{Uri.EscapeDataString(projectPath)}/merge_requests/{mrId}";
+                var mrResponse = await _httpClient.GetAsync(mrInfoUrl);
+                if (!mrResponse.IsSuccessStatusCode)
+                    throw new Exception($"Failed to fetch MR info from {mrInfoUrl}");
+
+                var mrData = JObject.Parse(await mrResponse.Content.ReadAsStringAsync());
+                title = mrData["title"]?.ToString() ?? "No Title Found";
+                target_branch = mrData["target_branch"]?.ToString() ?? "unknown";
+
+            }
+            else
+            {
+                // Use MR-level diff (your current approach)
+                string apiUrl = $"{_gitlabBaseURL}/{Uri.EscapeDataString(projectPath)}/merge_requests/{mrId}/changes";
+
+                HttpResponseMessage response = await _httpClient.GetAsync(apiUrl);
+                if (!response.IsSuccessStatusCode)
+                    throw new Exception($"Not able to fetch changes from MR {apiUrl}");
+
                 string responseBody = await response.Content.ReadAsStringAsync();
                 JObject mrDetails = JObject.Parse(responseBody);
 
-                var source_branch = mrDetails["source_branch"];
-                var target_branch = mrDetails["target_branch"]?.ToString() ?? throw new Exception($"Not able to find target branch from MR {apiUrl}");
-                var diffRefs = mrDetails["diff_refs"];
-                var title = mrDetails["title"]?.ToString();
-                
-                if (diffRefs == null){
-                    throw new Exception($"Not able to find diff refs from MR {apiUrl}");
-                }
+                title = mrDetails["title"]?.ToString() ?? "No Title Found";
+                target_branch = mrDetails["target_branch"]?.ToString() ?? "unknown";
 
-                string commit_sha = mrDetails["sha"]!.ToString();
-                string baseSha = diffRefs["base_sha"]!.ToString();
-                string headSha = diffRefs["head_sha"]!.ToString();
-                string startSha = diffRefs["start_sha"]!.ToString();
+                var diffRefs = mrDetails["diff_refs"]!;
+                baseSha = diffRefs["base_sha"]!.ToString();
+                headSha = diffRefs["head_sha"]!.ToString();
+                startSha = diffRefs["start_sha"]!.ToString();
 
                 var changes = mrDetails["changes"];
+                string commitSha = mrDetails["sha"]!.ToString();
 
-                if (changes == null){
-                    throw new Exception($"Not able to changes from MR {apiUrl}");
-                }
-
-                List<FileDiff> diffs = [];
-
-                foreach (var change in changes)
+                foreach (var change in changes!)
                 {
                     string fileName = change["new_path"]!.ToString();
-                    //string oldFileName = change["old_path"]!.ToString();
                     string diff = change["diff"]!.ToString();
 
-                    var fileURL = $"{_gitlabBaseURL}/{Uri.EscapeDataString(projectPath)}/repository/files/{Uri.EscapeDataString(fileName)}/raw?ref={commit_sha}";
+                    string fileURL = $"{_gitlabBaseURL}/{Uri.EscapeDataString(projectPath)}/repository/files/{Uri.EscapeDataString(fileName)}/raw?ref={commitSha}";
 
                     try
                     {
                         var fileContents = await _httpClient.GetStringAsync(fileURL);
 
-                        var fileDiff = new FileDiff
+                        diffs.Add(new FileDiff
                         {
                             FileName = fileName,
                             FileContents = fileContents,
+                            Diff = diff,
                             BaseSha = baseSha,
                             HeadSha = headSha,
-                            StartSha = startSha,
-                            Diff = diff
-                        };
-                        diffs.Add(fileDiff);
-                    } catch (Exception) { /* Could be 404 MRs can have a deleted file, and that's normal! */ }
+                            StartSha = startSha
+                        });
+                    }
+                    catch { /* Ignore deleted files */ }
                 }
-
-
-                return new MRDetails
-                {
-                    MRId = mrId,
-                    TargetRepoPath = projectPath,
-                    fileDiffs = diffs,
-                    Title = title,
-                    JIRA = StringParserService.GetJIRATicket(title?.ToString() ?? "No Title Found"),
-                    TargetBranch = target_branch
-                };
-
-               
             }
 
-            throw new Exception($"Not able to fetch changes from mr {apiUrl}");
+            return new MRDetails
+            {
+                MRId = mrId,
+                TargetRepoPath = projectPath,
+                fileDiffs = diffs,
+                Title = title,
+                JIRA = StringParserService.GetJIRATicket(title),
+                TargetBranch = target_branch
+            };
         }
+
 
         /// <summary>
         /// Retrieves the files associated with a merge request.
