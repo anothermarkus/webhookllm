@@ -23,6 +23,16 @@ Tokenizing a list of code smells, iterating a batch of files at a time per folde
 
 Failed at iterating code smell at a time, doing ZeroShot strategy with new model mistral, getting much better results.
 
+There was too much uncertainty with regards to the models and the types of prompts and their ability to detect code issues.
+I have created a new repo that summarizes the results of a few test-runs here.  The conclusion was very good results for llama-3-1-8b-instruct compared to other models
+
+![image](https://github.com/user-attachments/assets/1ad7464c-20af-4534-b134-d1b44be5a7eb)
+
+
+https://github.com/anothermarkus/llmexperiment
+
+
+
 Documents to reference for this project
 - Review API Patterns https://github.com/openai/openai-dotnet/tree/OpenAI_2.1.0
 - Documentation https://platform.openai.com/docs/api-reference/introduction
