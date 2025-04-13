@@ -42,11 +42,3 @@ Documents to reference for this project
 - Documentation https://platform.openai.com/docs/api-reference/introduction
 - Cookbook code quality https://cookbook.openai.com/examples/third_party/code_quality_and_security_scan_with_github_actions
 
-
-TODO
-- Add Embeddings to OpenAI calls which should provide context / code standards
-- Have the standards/criteria be flexible via dynamic configuration based on how the service is managing the MRs
-- Introspection into how much compute power and/or time is spent per suggestion
-- Parallelize suggestions across all files, or submit multiple files together, only review certain files: .ts, .cs  standards for each file
-- Consideradding LangFuse to monitor performance
-- Move these TODOs to issues list
