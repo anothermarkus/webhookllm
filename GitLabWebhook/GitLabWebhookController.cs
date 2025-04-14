@@ -9,7 +9,6 @@ using GitLabWebhook.CodeReviewServices.Strategies;
 using System.Net.Http;
 
 using System.Text;
-using GitLabWebhook.CodeReviewServicesdotne;
 
 namespace GitLabWebhook.Controllers
 {
@@ -69,7 +68,7 @@ namespace GitLabWebhook.Controllers
             _repoAllowListContainsText = configuration["Allowlist:Contains"];
             _repoDisallowListContainsText = configuration["Disallowlist:Contains"];
             _strategyFactory = strategyFactory;
-            _staticAnalyzerService = new StaticAnalyzerService();
+            _staticAnalyzerService = new StaticAnalyzerService(configuration);
         }
 
 
@@ -467,7 +466,7 @@ namespace GitLabWebhook.Controllers
 
             foreach (var diagnostic in results)
             {
-                sb.Append($"Diagnostic: {diagnostic.GetMessage()}\n");
+                sb.Append($"Diagnostic: {diagnostic.Message}\n");
             }
 
             return Ok(sb.ToString());

@@ -1,0 +1,39 @@
+<ng-container *ngFor="let fooGroup of importantProperty.aposfooGroupsVm; let fooGroupIndex = index">
+    <tr class="mycomponentlb__tr" *ngFor="let foo of fooGroup.foos; let fooIndex = index">
+        <td class="mycomponentlb__td mycomponentlb__justify-content-start dsa__width-200">
+            <div class="mycomponentlb__d-flex mycomponentlb__flex-sm-column">
+                <span>{{ foo?.id }}</span>
+                <div id="foo_lottaComponents" class="dsa__lottaComponents__container">
+                    <app-lotta-selectors *ngIf="foo.isVariablePriced"
+                    elementId="VariablePricedlottaComponent_{{ sanitizedPropertyIndex }}_{{itemIndex}}_{{ fooIndex }}" lottaComponentShortName="VP"
+                    lottaComponentFullName="Variable Pricing">
+                    </app-lotta-selectors>
+                    <app-lotta-selectors *ngIf="foo.isVariable"
+                    elementId="VariableItemlottaComponent_{{ sanitizedPropertyIndex }}_{{itemIndex}}_{{ fooIndex }}" lottaComponentShortName="VI"
+                    lottaComponentFullName="Variable Item">
+                    </app-lotta-selectors>
+                    <app-lotta-selectors *ngIf="isCondition(foo) && checkOtherCondition() && foo.info?.property"
+                    elementId="Domain_property_{{ sanitizedPropertyIndex }}_{{itemIndex}}_{{ fooIndex }}" lottaComponentShortName="{{foo.info?.property}}"
+                    lottaComponentFullName="Flex Billing Enabled" 
+                    lottaComponentClassName="mycomponentlb__lottaComponent--gray">
+                    </app-lotta-selectors>        
+                    <app-lotta-selectors *ngIf="isCondition(foo) && !checkOtherCondition() && foo.info?.property"
+                    elementId="Domain_property_{{ sanitizedPropertyIndex }}_{{ itemIndex}}_{{ fooIndex }}" lottaComponentShortName="{{foo.info?.property}}"
+                    lottaComponentFullName="Eligible for Flex Billing"
+                    lottaComponentClassName="mycomponentlb__lottaComponent--gray">
+                    </app-lotta-selectors>
+                    <app-lotta-selectors *ngIf="isCondition(foo) && checkOtherCondition() && foo.info?.chargeType"
+                    elementId="Domain_ChargeType_{{ sanitizedPropertyIndex }}_{{ itemIndex}}_{{ fooIndex }}" lottaComponentShortName="{{foo.info?.chargeType}}"
+                    lottaComponentFullName="Eligible for Flex Billing"
+                    lottaComponentClassName="mycomponentlb__lottaComponent--gray">
+                    </app-lotta-selectors>
+                    <app-lotta-selectors *ngIf="isCondition(foo) && !checkOtherCondition() && foo.info?.chargeType"
+                    elementId="Domain_ChargeType_{{ sanitizedPropertyIndex }}_{{ itemIndex}}_{{ fooIndex }}" lottaComponentShortName="{{foo.info?.chargeType}}"
+                    lottaComponentFullName="Eligible for Flex Billing"
+                    lottaComponentClassName="mycomponentlb__lottaComponent--gray">
+                    </app-lotta-selectors>
+                </div>
+            </div>
+        </td>      
+</ng-container>
+

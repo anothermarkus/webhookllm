@@ -19,6 +19,9 @@
     <Content Include="images\RawMR.jpg" />
   </ItemGroup>
 
+  <ItemGroup>
+    <None Include="eslint-plugin-angular-smells\**\*" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="HtmlAgilityPack" Version="1.12.0" />
@@ -45,6 +48,16 @@
     <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
   </None>
 </ItemGroup>
+
+<Target Name="ForceNpmInstall" AfterTargets="Build" >
+  <Message Importance="high" Text="Running npm install in eslint-plugin-angular-smells..." />
+  <Exec Command="echo Running npm install" WorkingDirectory="$(ProjectDir)eslint-plugin-angular-smells" />
+  <Exec Command="npm install" WorkingDirectory="$(ProjectDir)eslint-plugin-angular-smells" />
+  <WriteLinesToFile File="$(ProjectDir)eslint-plugin-angular-smells\npm-install-log.txt"
+                  Lines="NPM install ran on $(MSBuildThisFileFullPath) at $(MSBuildProjectDirectory)"
+                  Overwrite="true" />
+</Target>
+
 
 
 </Project>

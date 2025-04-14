@@ -20,5 +20,9 @@
   },
   "Disallowlist": {
     "Contains": "DSA-Sales"
+  },
+  "Linting": {
+     "NpxPath": "C:\\Program Files\\nodejs\\npx.cmd",
+     "PCFNpxPath": "/home/vcap/deps/0/bin/npx"
   }
 }

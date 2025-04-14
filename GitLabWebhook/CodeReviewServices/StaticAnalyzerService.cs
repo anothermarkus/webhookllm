@@ -1,43 +1,190 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.Diagnostics;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using System.Collections.Immutable;
 using GitLabWebhook.Models;
-using Microsoft.CodeAnalysis;
+using System.Text.Json;
 
-namespace GitLabWebhook.CodeReviewServicesdotne
+namespace GitLabWebhook.CodeReviewServices
 {
     public class StaticAnalyzerService
     {
-        public async Task<IEnumerable<Diagnostic>> AnalyzeDiffedFilesAsync(List<FileDiff> fileDiffs)
+
+        private IConfiguration _configuration;
+        private string _npxPath;
+
+        public StaticAnalyzerService(IConfiguration configuration){
+
+            this._configuration = configuration;
+            this._npxPath = configuration["Linting:NpxPath"];
+        }
+
+        public async Task<IEnumerable<CustomDiagnostic>> AnalyzeDiffedFilesAsync(List<FileDiff> fileDiffs)
         {
-            var diagnostics = new List<Diagnostic>();
+            var diagnostics = new List<CustomDiagnostic>();
 
             foreach (var fileDiff in fileDiffs)
             {
-                var syntaxTree = CSharpSyntaxTree.ParseText(fileDiff.FileContents, path: fileDiff.FileName);
-                var compilation = CSharpCompilation.Create("CodeAnalysis")
-                    .AddReferences(MetadataReference.CreateFromFile(typeof(object).Assembly.Location))
-                    .AddSyntaxTrees(syntaxTree);
+                var framework = FrameworkDetector.DetectFrameworkFromFiles(fileDiffs.Select(fd => fd.FileName).ToList());
 
-                // Get analyzers and use them
-                var analyzers = GetRoslynAnalyzers();
-
-                // Manually create compilation with analyzer diagnostics
-                foreach (var analyzer in analyzers)
+                if (framework == CodeFramework.DotNet)
                 {
-                    var diagnosticResults = await GetDiagnosticsFromAnalyzer(compilation, analyzer);
-                    diagnostics.AddRange(diagnosticResults);
+                    var syntaxTree = CSharpSyntaxTree.ParseText(fileDiff.FileContents, path: fileDiff.FileName);
+                    var compilation = CSharpCompilation.Create("CodeAnalysis")
+                        .AddReferences(MetadataReference.CreateFromFile(typeof(object).Assembly.Location))
+                        .AddSyntaxTrees(syntaxTree);
+
+                    var analyzers = GetRoslynAnalyzers();
+                    foreach (var analyzer in analyzers)
+                    {
+                        var diagnosticResults = await GetDiagnosticsFromAnalyzer(compilation, analyzer);
+                        diagnostics.AddRange(diagnosticResults);
+                    }
+                }
+                else if (framework == CodeFramework.Angular)
+                {
+                    var angularDiagnostics = await AnalyzeWithEslintAsync(fileDiff);
+                    diagnostics.AddRange(angularDiagnostics);
                 }
             }
 
             return diagnostics;
         }
+
+        private async Task<IEnumerable<CustomDiagnostic>> AnalyzeWithEslintAsync(FileDiff fileDiff)
+        {
+            var diagnostics = new List<CustomDiagnostic>();
+            var tempPath = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName());
+
+            try
+            {
+                var pluginPath = Path.Combine(AppContext.BaseDirectory, "eslint-plugin-angular-smells");
+
+                Directory.CreateDirectory(tempPath);
+                var tempFile = Path.Combine(tempPath, Path.GetFileName(fileDiff.FileName));
+                await File.WriteAllTextAsync(tempFile, fileDiff.FileContents);
+
+                var psi = new System.Diagnostics.ProcessStartInfo
+                {
+                    FileName = _npxPath,
+                    Arguments = $"eslint \"{tempPath}\"  -f json --config \"{Path.Combine(pluginPath, ".eslintrc.js")}\"",
+                    WorkingDirectory = pluginPath,
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true,
+                    UseShellExecute = false,
+                    CreateNoWindow = true
+                };
+
+                using var process = System.Diagnostics.Process.Start(psi);
+                var output = await process.StandardOutput.ReadToEndAsync();
+                var error = await process.StandardError.ReadToEndAsync();
+
+                process.WaitForExit();
+
+                if (process.ExitCode != 0 && string.IsNullOrWhiteSpace(output))
+                {
+                    Console.WriteLine("ESLint error: " + error);
+                    return diagnostics;
+                }
+
+              
+                return ParseEslintOutput(output);
+                
+                // JsonSerializer.Deserialize<List<EslintResult>>(output);
+                // foreach (var result in results)
+                // {
+                //     foreach (var message in result.Messages)
+                //     {
+                //         diagnostics.Add(new CustomDiagnostic
+                //         {
+                //             FilePath = fileDiff.FileName,
+                //             Message = message.Message,
+                //             Line = message.Line,
+                //             Column = message.Column,
+                //             Severity = message.Severity == 2 ? "Error" : "Warning",
+                //             Source = "eslint"
+                //         });
+                //     }
+                // }
+
+
+            }catch(Exception e){
+
+                throw e; // rethrow
+            }
+            finally
+            {
+                if (Directory.Exists(tempPath))
+                    Directory.Delete(tempPath, recursive: true);
+            }
+
+            return diagnostics;
+        }
+
+        public class CustomDiagnostic
+        {
+            public string RuleId { get; set; }
+            public string FilePath { get; set; }
+            public string Message { get; set; }
+            public int Line { get; set; }
+            public int Column { get; set; }
+            public string Severity { get; set; } // "Warning" or "Error"
+            public string Source { get; set; }   // "Roslyn" or "ESLint"
+        }
+
+
+        public class EslintMessage
+        {
+            public string RuleId { get; set; } // sometimes this can be string or null
+            public int Severity { get; set; }
+            public string Message { get; set; }
+            public int Line { get; set; }
+            public int Column { get; set; }
+        }
+
+        public class EslintResult
+        {
+            public string FilePath { get; set; }
+            public List<EslintMessage> Messages { get; set; } = new();
+            public int ErrorCount { get; set; }
+            public int WarningCount { get; set; }
+        }
+
+        public static List<CustomDiagnostic> ParseEslintOutput(string eslintJson)
+        {
+            var results = JsonSerializer.Deserialize<List<EslintResult>>(eslintJson, new JsonSerializerOptions
+            {
+                PropertyNameCaseInsensitive = true
+            });
+
+            var diagnostics = new List<CustomDiagnostic>();
+
+            foreach (var result in results)
+            {
+                foreach (var message in result.Messages)
+                {
+                    diagnostics.Add(new CustomDiagnostic
+                    {
+                        FilePath = result.FilePath,
+                        Message = message.Message,
+                        RuleId = message.RuleId?.ToString(),
+                        Severity = message.Severity switch
+                        {
+                            2 => "Error",
+                            1 => "Warning",
+                            _ => "Info"
+                        },
+                        Line = message.Line,
+                        Column = message.Column
+                    });
+                }
+            }
+
+            return diagnostics;
+        }
+
+
 
         private static IEnumerable<DiagnosticAnalyzer> GetRoslynAnalyzers()
         {
@@ -52,7 +199,7 @@ namespace GitLabWebhook.CodeReviewServicesdotne
         }
 
         // Get diagnostics for a specific analyzer
-        private static async Task<IEnumerable<Diagnostic>> GetDiagnosticsFromAnalyzer(CSharpCompilation compilation, DiagnosticAnalyzer analyzer)
+        private static async Task<IEnumerable<CustomDiagnostic>> GetDiagnosticsFromAnalyzer(CSharpCompilation compilation, DiagnosticAnalyzer analyzer)
         {
             var additionalText = ImmutableArray<AdditionalText>.Empty; // Empty, or pass valid AdditionalText if required.
             var analyzerOptions = new AnalyzerOptions(additionalText);  // Correct constructor
@@ -60,7 +207,25 @@ namespace GitLabWebhook.CodeReviewServicesdotne
             var compilationWithAnalyzers = compilation.WithAnalyzers(ImmutableArray.Create(analyzer));
 
             var diagnostics = await compilationWithAnalyzers.GetAnalyzerDiagnosticsAsync();
-            return diagnostics;
+            var customDiagnostics = new List<CustomDiagnostic>();
+
+            foreach (var diagnostic in diagnostics)
+            {
+                var location = diagnostic.Location;
+                var lineSpan = location.GetLineSpan();
+
+                customDiagnostics.Add(new CustomDiagnostic
+                {
+                    FilePath = lineSpan.Path,
+                    Message = diagnostic.GetMessage(),
+                    Line = lineSpan.StartLinePosition.Line + 1,
+                    Column = lineSpan.StartLinePosition.Character + 1,
+                    Severity = diagnostic.Severity.ToString(), // Info, Warning, Error
+                    Source = "Roslyn"
+                });
+            }
+
+            return customDiagnostics;
         }
 
     }
@@ -233,7 +398,7 @@ namespace GitLabWebhook.CodeReviewServicesdotne
         private static void AnalyzeNode(SyntaxNodeAnalysisContext context)
         {
             var invocation = (InvocationExpressionSyntax)context.Node;
-             var filePath = context.Node.SyntaxTree.FilePath ?? "unknown";
+            var filePath = context.Node.SyntaxTree.FilePath ?? "unknown";
 
 
             if (invocation.Expression is IdentifierNameSyntax identifier &&
