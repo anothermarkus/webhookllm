@@ -5,6 +5,14 @@ Git Webhook API integration with LLM
 
 Source: https://fintech.theodo.com/blog-posts/eslint-on-steroids-with-custom-rules
 
+
+Static Analysis
+
+![image](https://github.com/user-attachments/assets/5fb233ae-1a67-4f56-9ba1-f99b924d2971)
+
+
+
+
 ![image](https://github.com/user-attachments/assets/ecb6f5fa-8089-474e-abc8-1d56109f4abf)
 
 
