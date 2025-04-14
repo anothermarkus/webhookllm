@@ -1,0 +1,32 @@
+{
+    "name": "@anothermarcus-org/eslint-plugin-angular-smells",
+    "version": "1.0.14",
+    "main": "index.js",
+    "peerDependencies": {
+        "eslint": "^7.0.0 || ^8.0.0"
+    },
+    "devDependencies": {
+        "@angular-eslint/eslint-plugin": "^13.5.0",
+        "@angular-eslint/template-parser": "^13.5.0",
+        "@typescript-eslint/eslint-plugin": "^8.29.1",
+        "@typescript-eslint/parser": "^8.29.1",
+        "eslint": "^8.57.1",
+        "eslint-plugin-angular-smells": "file:"
+    },
+    "keywords": [
+        "eslint",
+        "eslintplugin",
+        "angular"
+    ],
+    "author": "Mark LLM",
+    "license": "ISC",
+    "scripts": {
+        "build": "npm run link-plugin && npm install && npm run lint",
+        "link-plugin": "npm link eslint-plugin-angular-smells",
+        "lint": "npx eslint .\\codesmellsamples\\*",
+        "publishme": "npm version patch && npm publish"
+    },
+    "dependencies": {
+        "@anothermarcus-org/eslint-plugin-angular-smells": "file:"
+    }
+}
