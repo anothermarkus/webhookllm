@@ -24,7 +24,8 @@
         "build": "npm run link-plugin && npm install && npm run lint",
         "link-plugin": "npm link eslint-plugin-angular-smells",
         "lint": "npx eslint .\\codesmellsamples\\*",
-        "publishme": "npm version patch && npm publish"
+        "publishme": "npm version patch && npm publish",
+        "test:eslint-rules": "node tests\\test-runner.js"
     },
     "dependencies": {
         "@anothermarcus-org/eslint-plugin-angular-smells": "file:"
